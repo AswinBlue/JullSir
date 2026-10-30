@@ -19,26 +19,38 @@ export class MockQueueRepository implements IQueueRepository {
     }
   }
 
+  private getStorage(): Storage | null {
+    if (typeof window !== 'undefined' && window.localStorage) return window.localStorage;
+    if (typeof globalThis !== 'undefined' && (globalThis as unknown as { localStorage?: Storage }).localStorage) {
+      return (globalThis as unknown as { localStorage: Storage }).localStorage;
+    }
+    return null;
+  }
+
   private getQueues(): Record<string, Queue> {
-    if (typeof window === 'undefined') return {};
-    const raw = localStorage.getItem(QUEUES_KEY);
+    const storage = this.getStorage();
+    if (!storage) return {};
+    const raw = storage.getItem(QUEUES_KEY);
     return raw ? JSON.parse(raw) : {};
   }
 
   private saveQueues(queues: Record<string, Queue>): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(QUEUES_KEY, JSON.stringify(queues));
+    const storage = this.getStorage();
+    if (!storage) return;
+    storage.setItem(QUEUES_KEY, JSON.stringify(queues));
   }
 
   private getTickets(): Record<string, Ticket> {
-    if (typeof window === 'undefined') return {};
-    const raw = localStorage.getItem(TICKETS_KEY);
+    const storage = this.getStorage();
+    if (!storage) return {};
+    const raw = storage.getItem(TICKETS_KEY);
     return raw ? JSON.parse(raw) : {};
   }
 
   private saveTickets(tickets: Record<string, Ticket>): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(TICKETS_KEY, JSON.stringify(tickets));
+    const storage = this.getStorage();
+    if (!storage) return;
+    storage.setItem(TICKETS_KEY, JSON.stringify(tickets));
   }
 
   private broadcast(event: QueueEvent): void {

@@ -34,7 +34,22 @@
 
 ---
 
-## 3. 로컬 실행 방법
+## 3. 실행 및 빌드 스크립트 (`scripts/`)
+
+프로젝트 루트의 `scripts/` 폴더에 Windows(PowerShell) 및 Linux/macOS(Bash)용 자동화 스크립트가 완비되어 있습니다.
+
+| 스크립트 파일 | 설명 | 실행 명령어 (PowerShell) | 실행 명령어 (Bash / npm) |
+| :--- | :--- | :--- | :--- |
+| **`scripts/menu.ps1`** | **대화형 통합 작업 메뉴** (원클릭 번호 선택) | `.\scripts\menu.ps1` | `bash scripts/menu.sh` |
+| **`scripts/dev.ps1`** | 로컬 개발 서버 실행 (`localhost:3000/Jullsir/`) | `.\scripts\dev.ps1` | `pnpm dev` |
+| **`scripts/test.ps1`** | 단위 및 로직 테스트 실행 (Vitest 5개 테스트) | `.\scripts\test.ps1` | `pnpm test` |
+| **`scripts/build-test.ps1`** | 테스트 빌드 (단위테스트 + 타입체크 + 스테이징 빌드) | `.\scripts\build-test.ps1` | `pnpm run build:test` |
+| **`scripts/build-prod.ps1`** | 운영 빌드 (타입체크 + 프로덕션 번들 빌드) | `.\scripts\build-prod.ps1` | `pnpm run build:prod` |
+| **`scripts/preview.ps1`** | 빌드 산출물(`dist/`) 로컬 미리보기 서버 | `.\scripts\preview.ps1` | `pnpm preview` |
+
+---
+
+## 4. 로컬 수동 실행 방법
 
 ```bash
 # 1. 의존성 설치
@@ -54,7 +69,7 @@ pnpm build
 
 ---
 
-## 4. GitHub Pages 배포 방법
+## 5. GitHub Pages 배포 방법
 
 1. 본 레포지토리를 GitHub의 `Jullsir` 원격 저장소(`main` 브랜치)로 푸시합니다.
 2. GitHub 저장소의 **Settings** $\rightarrow$ **Pages** 메뉴로 이동합니다.
