@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueue } from '../hooks/useQueue';
 import { queueRepository } from '../services/storage/mockQueueRepository';
@@ -7,6 +7,7 @@ import { EmailInput, isValidEmail } from '../components/common/EmailInput';
 import { Header } from '../components/common/Header';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
+import { soundManager } from '../utils/sound';
 import { 
   Users, 
   AlertCircle, 
@@ -22,6 +23,19 @@ export const QueueIssue: React.FC = () => {
   const [email, setEmail] = useState('');
   const [issuing, setIssuing] = useState(false);
   const [issueError, setIssueError] = useState('');
+
+  // A-3: Pre-emptively unlock mobile AudioContext on first touch / click
+  useEffect(() => {
+    const handleUnlock = () => {
+      soundManager.unlockAudio();
+    };
+    window.addEventListener('click', handleUnlock, { once: true });
+    window.addEventListener('touchstart', handleUnlock, { once: true });
+    return () => {
+      window.removeEventListener('click', handleUnlock);
+      window.removeEventListener('touchstart', handleUnlock);
+    };
+  }, []);
 
   const handleIssueTicket = async (e: React.FormEvent) => {
     e.preventDefault();

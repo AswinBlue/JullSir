@@ -25,7 +25,9 @@ import {
   Download,
   Mail,
   ExternalLink,
-  HelpCircle
+  HelpCircle,
+  BellRing,
+  Trash2
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
@@ -49,7 +51,12 @@ export const AdminDashboard: React.FC = () => {
 
   // Host Action State
   const [calling, setCalling] = useState(false);
+  const [recalling, setRecalling] = useState(false);
   const [actionError, setActionError] = useState('');
+
+  // Close & Purge Modal (End of Day)
+  const [isPurgeModalOpen, setIsPurgeModalOpen] = useState(false);
+  const [purging, setPurging] = useState(false);
 
   // URLs
   const baseUrl = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -125,6 +132,40 @@ export const AdminDashboard: React.FC = () => {
       setActionError(msg);
     } finally {
       setCalling(false);
+    }
+  };
+
+  // N-2: Recall Current Ticket
+  const handleRecallCurrent = async () => {
+    if (!adminToken) return;
+    setActionError('');
+    setRecalling(true);
+    try {
+      const recalled = await queueRepository.reCallCurrentTicket(adminToken);
+      if (!recalled) {
+        setActionError('현재 호출 중인 티켓이 없습니다.');
+      } else {
+        await refresh();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '재호출 중 오류가 발생했습니다.';
+      setActionError(msg);
+    } finally {
+      setRecalling(false);
+    }
+  };
+
+  // N-4: Close & Purge Queue Permanently (End of day)
+  const handleCloseAndPurge = async () => {
+    if (!adminToken) return;
+    setPurging(true);
+    try {
+      await queueRepository.closeAndPurgeQueue(adminToken);
+      setIsPurgeModalOpen(false);
+      navigate('/');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : '영업 종료 처리 실패');
+      setPurging(false);
     }
   };
 
@@ -386,6 +427,26 @@ export const AdminDashboard: React.FC = () => {
               현재 번호 스킵
             </Button>
           </div>
+
+          {/* N-2: 현재 번호 재호출 (다시 알림) */}
+          {queue.currentServingNumber > 0 && (
+            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-xs text-slate-500 font-medium">
+                현재 호출 중인 번호: <strong className="text-slate-900">#{queue.currentServingNumber}번</strong>
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={recalling}
+                onClick={handleRecallCurrent}
+                className="gap-1.5 font-bold text-brand-600 border-brand-200 hover:bg-brand-50 text-xs"
+              >
+                <BellRing className="w-3.5 h-3.5 text-brand-600 animate-pulse" />
+                {recalling ? '호출 중...' : '재호출 (다시 알림)'}
+              </Button>
+            </div>
+          )}
+
           <p className="text-[11px] text-slate-400 text-center mt-3">
             호출 시 손님 기기 화면이 실시간 전환되고 차임벨 소리와 진동/알림이 즉시 전송됩니다.
           </p>
@@ -470,6 +531,18 @@ export const AdminDashboard: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* N-4: 점주 영업 종료 및 즉시 정리 섹션 */}
+        <div className="pt-4 border-t border-slate-100 flex justify-center pb-6">
+          <button
+            type="button"
+            onClick={() => setIsPurgeModalOpen(true)}
+            className="text-xs text-slate-400 hover:text-rose-600 font-medium flex items-center gap-1.5 p-2 rounded-xl hover:bg-rose-50 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            오늘 영업 종료 및 대기열 즉시 정리
+          </button>
+        </div>
       </main>
 
       {/* Edit Title / Description Modal */}
@@ -532,20 +605,24 @@ export const AdminDashboard: React.FC = () => {
       <Modal
         isOpen={isSessionModalOpen}
         onClose={() => setIsSessionModalOpen(false)}
-        title="대기열 자동 정리 안내"
+        title="대기열 및 데이터 자동 정리 안내"
       >
         <div className="space-y-4 text-xs text-slate-600 leading-relaxed text-left">
           <div className="p-3.5 bg-brand-50 border border-brand-100 rounded-2xl text-slate-800 space-y-1.5">
             <p className="font-bold text-sm text-brand-700">🔒 개인정보 보호 자동 파기 정책</p>
             <p>
-              고객님의 이메일 정보와 대기표 데이터는 관리자가 <strong>6시간 이상 페이지에 접속하지 않을 경우</strong> 서버 및 로컬에서 영구히 자동 삭제됩니다.
+              고객님의 이메일 정보와 대기표 데이터는 관리자가 <strong>6시간 이상 페이지에 접속하지 않을 경우</strong> 영구히 자동 삭제됩니다.
             </p>
           </div>
 
-          <p>
-            • <strong>세션 자동 연장:</strong> 관리자 대시보드 화면을 열어두시거나 페이지를 새로고침하시면 남은 시간이 자동으로 6시간으로 갱신됩니다.<br />
-            • <strong>수동 연장:</strong> 상단의 <code>세션 연장 (+6시간)</code> 버튼을 클릭하여 즉시 연장할 수 있습니다.
-          </p>
+          <div className="space-y-2 text-slate-600">
+            <p>
+              • <strong>완료/취소 즉시 파기:</strong> 손님의 입장이 완료되거나 취소되는 즉시 수집된 이메일 정보는 영구 파기됩니다.<br />
+              • <strong>세션 자동 연장:</strong> 관리자 대시보드 화면을 열어두시면 활동 중인 동안 세션이 자동으로 지속 연장됩니다.<br />
+              • <strong>수동 연장:</strong> 상단의 <code>세션 연장 (+6시간)</code> 버튼으로 즉시 연장 가능합니다.<br />
+              • <strong>영업 종료 즉시 정리:</strong> 하단의 <code>오늘 영업 종료 및 대기열 즉시 정리</code>를 누르면 즉시 모든 대기열과 이메일 정보가 완전히 파기됩니다.
+            </p>
+          </div>
 
           <Button
             variant="primary"
@@ -554,6 +631,44 @@ export const AdminDashboard: React.FC = () => {
           >
             확인
           </Button>
+        </div>
+      </Modal>
+
+      {/* N-4: Confirm Purge Modal */}
+      <Modal
+        isOpen={isPurgeModalOpen}
+        onClose={() => !purging && setIsPurgeModalOpen(false)}
+        title="오늘 영업 종료 및 대기열 정리"
+      >
+        <div className="space-y-4 text-center">
+          <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+            <Trash2 className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-base font-bold text-slate-900">대기열 데이터를 모두 정리할까요?</h4>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              오늘의 대기열과 접수된 모든 손님의 이메일/대기 정보가 영구 파기되며, 손님 화면에도 대기열 종료가 즉시 반영됩니다. 이 작업은 되돌릴 수 없습니다.
+            </p>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              disabled={purging}
+              onClick={() => setIsPurgeModalOpen(false)}
+            >
+              취소
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1 font-bold"
+              disabled={purging}
+              onClick={handleCloseAndPurge}
+            >
+              {purging ? '정리 중...' : '영업 종료 및 데이터 파기'}
+            </Button>
+          </div>
         </div>
       </Modal>
 

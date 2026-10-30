@@ -7,6 +7,7 @@ export function useTicket(ticketId?: string) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [queue, setQueue] = useState<Queue | null>(null);
   const [waitingCount, setWaitingCount] = useState<number>(0);
+  const [avgWaitTimeMinutes, setAvgWaitTimeMinutes] = useState<number>(3);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const prevStatusRef = useRef<string | null>(null);
@@ -37,6 +38,9 @@ export function useTicket(ticketId?: string) {
       if (summary) {
         setQueue(summary.queue);
         setWaitingCount(summary.waitingCount);
+        if (summary.avgWaitTimeMinutes) {
+          setAvgWaitTimeMinutes(summary.avgWaitTimeMinutes);
+        }
       } else {
         const q = await queueRepository.getQueue(t.queueId);
         setQueue(q);
@@ -54,7 +58,12 @@ export function useTicket(ticketId?: string) {
     fetchTicketAndQueue();
 
     const unsubscribe = queueRepository.subscribe((event: QueueEvent) => {
-      if (
+      if (event.type === 'QUEUE_EXPIRED') {
+        if (ticket && event.queueId === ticket.queueId) {
+          setError('대기열이 종료되었습니다.');
+          setTicket(null);
+        }
+      } else if (
         (event.type === 'TICKET_CALLED' || event.type === 'TICKET_STATUS_CHANGED') &&
         event.ticket.id === ticketId
       ) {
@@ -68,11 +77,24 @@ export function useTicket(ticketId?: string) {
       fetchTicketAndQueue();
     }, 3000);
 
+    // A-1 & A-2: Re-sync on visibility change, focus, and network recovery
+    const handleSync = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchTicketAndQueue();
+      }
+    };
+    window.addEventListener('visibilitychange', handleSync);
+    window.addEventListener('focus', handleSync);
+    window.addEventListener('online', handleSync);
+
     return () => {
       unsubscribe();
       clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleSync);
+      window.removeEventListener('focus', handleSync);
+      window.removeEventListener('online', handleSync);
     };
-  }, [ticketId, fetchTicketAndQueue]);
+  }, [ticketId, fetchTicketAndQueue, ticket]);
 
   const cancel = async () => {
     if (!ticketId) return;
@@ -95,6 +117,9 @@ export function useTicket(ticketId?: string) {
     waitingBehind = Math.max(0, waitingCount - waitingAhead - 1);
   }
 
+  // N-3: 예상 대기 시간 (분) = (평균 소요시간) * (내 번호 앞 대기인원)
+  const expectedWaitMinutes = waitingAhead > 0 ? avgWaitTimeMinutes * waitingAhead : 0;
+
   const isMyTurn = ticket?.status === 'CALLED' || 
     (ticket?.status === 'WAITING' && queue?.currentServingNumber === ticket.ticketNumber);
 
@@ -104,6 +129,8 @@ export function useTicket(ticketId?: string) {
     waitingAhead, 
     waitingBehind, 
     waitingCount,
+    avgWaitTimeMinutes,
+    expectedWaitMinutes,
     isMyTurn, 
     loading, 
     error, 

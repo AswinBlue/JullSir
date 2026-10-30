@@ -7,6 +7,7 @@ import { MobileContainer } from '../components/common/MobileContainer';
 import { EmailInput, isValidEmail } from '../components/common/EmailInput';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
+import { soundManager } from '../utils/sound';
 import { Ticket } from '../types';
 import { 
   Users, 
@@ -47,6 +48,19 @@ export const StoreDisplay: React.FC = () => {
       generateQrDataUrl(personalTicketUrl).then(setIssuedTicketQrUrl).catch(console.error);
     }
   }, [issuedTicket, queueId, baseUrl]);
+
+  // A-3: Pre-emptively unlock mobile AudioContext on first touch / click
+  useEffect(() => {
+    const handleUnlock = () => {
+      soundManager.unlockAudio();
+    };
+    window.addEventListener('click', handleUnlock, { once: true });
+    window.addEventListener('touchstart', handleUnlock, { once: true });
+    return () => {
+      window.removeEventListener('click', handleUnlock);
+      window.removeEventListener('touchstart', handleUnlock);
+    };
+  }, []);
 
   // Handle direct tablet ticket issuance with strict email verification
   const handleDirectIssue = async (e: React.FormEvent) => {
@@ -277,6 +291,11 @@ export const StoreDisplay: React.FC = () => {
             </div>
 
             <div>
+              {issuedTicket.isExisting && (
+                <div className="mb-2 p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+                  ℹ️ 이미 접수된 대기표가 있어 기존 순번을 불러왔습니다.
+                </div>
+              )}
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                 고객님의 대기 번호
               </span>
@@ -310,6 +329,23 @@ export const StoreDisplay: React.FC = () => {
                   {waitingBehind}팀
                 </span>
               </div>
+            </div>
+
+            {/* Expected Wait Time */}
+            <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-medium">예상 대기 시간</span>
+              <span className="font-extrabold text-slate-800">
+                {waitingAhead === 0 ? (
+                  <span className="text-brand-600">곧 입장 차례입니다</span>
+                ) : (
+                  <span>
+                    약 <strong className="text-brand-600 text-sm">{waitingAhead * (summary?.avgWaitTimeMinutes || 3)}분</strong>
+                    <span className="text-[10px] text-slate-400 font-normal ml-1">
+                      (평균 {summary?.avgWaitTimeMinutes || 3}분/팀)
+                    </span>
+                  </span>
+                )}
+              </span>
             </div>
 
             {/* Smartphone Live Tracking QR */}

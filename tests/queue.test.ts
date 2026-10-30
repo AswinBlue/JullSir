@@ -120,4 +120,82 @@ describe('JullSir Queue & Ticket Logic Tests', () => {
 
     await expect(repo.issueTicket(queue.id, 'user@test.com')).rejects.toThrow('마감');
   });
+
+  it('N-1: 동일 이메일 중복 발급 시 신규 번호 채번 없이 기존 대기표를 복원해야 한다', async () => {
+    const queue = await repo.createQueue('중복 방지 테스트');
+    const firstTicket = await repo.issueTicket(queue.id, 'customer@test.com');
+    expect(firstTicket.ticketNumber).toBe(1);
+    expect(firstTicket.isExisting).toBeFalsy();
+
+    // 동일 이메일로 다시 발급 시도
+    const duplicateTicket = await repo.issueTicket(queue.id, 'customer@test.com');
+    expect(duplicateTicket.ticketNumber).toBe(1);
+    expect(duplicateTicket.id).toBe(firstTicket.id);
+    expect(duplicateTicket.isExisting).toBe(true);
+
+    // 총 발급 번호는 여전히 1이어야 함
+    const summary = await repo.getQueueSummary(queue.id);
+    expect(summary?.queue.lastIssuedNumber).toBe(1);
+    expect(summary?.waitingCount).toBe(1);
+  });
+
+  it('L-2: 입장 완료(COMPLETED) 및 취소(CANCELLED) 시 고객 이메일 정보가 영구 파기되어야 한다', async () => {
+    const queue = await repo.createQueue('개인정보 파기 테스트');
+    const t1 = await repo.issueTicket(queue.id, 'user1@test.com');
+    const t2 = await repo.issueTicket(queue.id, 'user2@test.com');
+
+    // 1번 호출 후 입장 완료
+    await repo.callNextTicket(queue.adminToken);
+    const completed = await repo.completeTicket(queue.adminToken, t1.id);
+    expect(completed.status).toBe('COMPLETED');
+    expect(completed.email).toBeUndefined();
+
+    // 2번 직접 취소
+    const cancelled = await repo.cancelTicket(t2.id);
+    expect(cancelled.status).toBe('CANCELLED');
+    expect(cancelled.email).toBeUndefined();
+
+    // 저장소에서도 이메일이 지워졌는지 확인
+    const savedT1 = await repo.getTicket(t1.id);
+    const savedT2 = await repo.getTicket(t2.id);
+    expect(savedT1?.email).toBeUndefined();
+    expect(savedT2?.email).toBeUndefined();
+  });
+
+  it('N-2: 현재 번호 재호출(reCallCurrentTicket)이 정상 동작해야 한다', async () => {
+    const queue = await repo.createQueue('재호출 테스트');
+    await repo.issueTicket(queue.id, 'user1@test.com');
+    await repo.callNextTicket(queue.adminToken);
+
+    const recalled = await repo.reCallCurrentTicket(queue.adminToken);
+    expect(recalled).toBeDefined();
+    expect(recalled?.ticketNumber).toBe(1);
+  });
+
+  it('N-3: 앞서 호출된 티켓들의 소요 시간을 기반으로 avgWaitTimeMinutes를 계산해야 한다', async () => {
+    const queue = await repo.createQueue('소요시간 계산 테스트');
+    const t1 = await repo.issueTicket(queue.id, 'user1@test.com');
+    
+    // 강제로 과거 생성 시각 및 호출 시각 주입 (6분 차이)
+    const tickets = JSON.parse(localStorage.getItem('jullsir_tickets_v1') || '{}');
+    tickets[t1.id].createdAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    tickets[t1.id].calledAt = new Date(Date.now() - 4 * 60 * 1000).toISOString();
+    localStorage.setItem('jullsir_tickets_v1', JSON.stringify(tickets));
+
+    const summary = await repo.getQueueSummary(queue.id);
+    expect(summary?.avgWaitTimeMinutes).toBe(6);
+  });
+
+  it('N-4 & L-3: 오늘 영업 종료 및 대기열 즉시 정리(closeAndPurgeQueue) 시 대기열과 티켓이 모두 파기되어야 한다', async () => {
+    const queue = await repo.createQueue('영업 종료 테스트');
+    await repo.issueTicket(queue.id, 'user1@test.com');
+
+    await repo.closeAndPurgeQueue(queue.adminToken);
+
+    const deletedQueue = await repo.getQueue(queue.id);
+    expect(deletedQueue).toBeNull();
+
+    const tickets = JSON.parse(localStorage.getItem('jullsir_tickets_v1') || '{}');
+    expect(Object.keys(tickets).length).toBe(0);
+  });
 });

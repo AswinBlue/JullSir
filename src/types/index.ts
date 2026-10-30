@@ -33,6 +33,7 @@ export interface Ticket {
   status: TicketStatus;
   createdAt: string;
   calledAt?: string;
+  isExisting?: boolean; // 중복 발급 시 기존 티켓 복원 여부
 }
 
 export interface QueueSummary {
@@ -41,10 +42,12 @@ export interface QueueSummary {
   currentServingTicket?: Ticket;
   nextTicket?: Ticket;
   recentTickets: Ticket[];
+  avgWaitTimeMinutes?: number; // 앞서 호출된 티켓들의 (calledAt - createdAt) 평균 소요 시간(분)
 }
 
 export type QueueEvent = 
   | { type: 'QUEUE_UPDATED'; queueId: string; queue: Queue }
+  | { type: 'QUEUE_EXPIRED'; queueId: string }
   | { type: 'TICKET_ISSUED'; queueId: string; ticket: Ticket }
   | { type: 'TICKET_CALLED'; queueId: string; ticket: Ticket }
   | { type: 'TICKET_STATUS_CHANGED'; queueId: string; ticket: Ticket };

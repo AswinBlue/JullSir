@@ -184,6 +184,16 @@ export class MockQueueRepository implements IQueueRepository {
     if (ticketsChanged) {
       this.saveTickets(tickets);
     }
+
+    // Broadcast QUEUE_EXPIRED event
+    this.broadcast({ type: 'QUEUE_EXPIRED', queueId });
+  }
+
+  // Close and purge queue immediately by admin (End of day)
+  public async closeAndPurgeQueue(adminToken: string): Promise<void> {
+    const queue = await this.getQueueByAdminToken(adminToken);
+    if (!queue) throw new Error('관리자 권한이 없습니다.');
+    await this.purgeQueue(queue.id);
   }
 
   // Auto check and purge expired queues
@@ -287,6 +297,18 @@ export class MockQueueRepository implements IQueueRepository {
       throw new Error('올바른 이메일 주소를 입력해 주세요.');
     }
 
+    // N-1: 동일 이메일 중복 발급 시 신규 채번 방지 및 기존 발급 티켓 복원
+    const allTickets = this.getTickets();
+    const existingTicket = Object.values(allTickets).find(
+      t => t.queueId === queueId && t.email?.toLowerCase() === trimmedEmail.toLowerCase() && t.status === 'WAITING'
+    );
+    if (existingTicket) {
+      return {
+        ...existingTicket,
+        isExisting: true
+      };
+    }
+
     // Atomic increment
     queue.lastIssuedNumber += 1;
     const nextTicketNumber = queue.lastIssuedNumber;
@@ -335,12 +357,25 @@ export class MockQueueRepository implements IQueueRepository {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 10);
 
+    // N-3: 앞서 호출된 티켓들의 (calledAt - createdAt) 평균 소요 시간(분) 계산
+    const calledTickets = tickets.filter(t => t.calledAt && t.createdAt);
+    let avgWaitTimeMinutes = 3; // 기본값 3분
+    if (calledTickets.length > 0) {
+      const totalDiffMs = calledTickets.reduce((acc, t) => {
+        const diff = new Date(t.calledAt!).getTime() - new Date(t.createdAt).getTime();
+        return acc + Math.max(0, diff);
+      }, 0);
+      const avgMinutes = Math.round((totalDiffMs / calledTickets.length) / (1000 * 60));
+      avgWaitTimeMinutes = Math.max(1, avgMinutes);
+    }
+
     return {
       queue,
       waitingCount: waitingTickets.length,
       currentServingTicket,
       nextTicket: waitingTickets[0] || undefined,
-      recentTickets
+      recentTickets,
+      avgWaitTimeMinutes
     };
   }
 
@@ -386,6 +421,25 @@ export class MockQueueRepository implements IQueueRepository {
     return nextTicket;
   }
 
+  // N-2: 현재 번호 재호출 (다시 알림 전송)
+  public async reCallCurrentTicket(adminToken: string): Promise<Ticket | null> {
+    const queue = await this.getQueueByAdminToken(adminToken);
+    if (!queue) throw new Error('관리자 권한이 없습니다.');
+    if (!queue.currentServingNumber) return null;
+
+    const tickets = this.getTickets();
+    const currentTicket = Object.values(tickets).find(
+      t => t.queueId === queue.id && t.ticketNumber === queue.currentServingNumber
+    );
+    if (!currentTicket) return null;
+
+    // Trigger notification
+    notificationService.notifyTicketCalled(currentTicket.ticketNumber, queue.name);
+
+    this.broadcast({ type: 'TICKET_CALLED', queueId: queue.id, ticket: currentTicket });
+    return currentTicket;
+  }
+
   public async skipTicket(adminToken: string, ticketId: string): Promise<Ticket> {
     const queue = await this.getQueueByAdminToken(adminToken);
     if (!queue) throw new Error('관리자 권한이 없습니다.');
@@ -422,6 +476,7 @@ export class MockQueueRepository implements IQueueRepository {
     }
 
     ticket.status = 'COMPLETED';
+    delete ticket.email; // L-2: 개인정보 최소수집 - 완료 즉시 영구 파기
     tickets[ticketId] = ticket;
     this.saveTickets(tickets);
 
@@ -443,6 +498,7 @@ export class MockQueueRepository implements IQueueRepository {
     }
 
     ticket.status = 'CANCELLED';
+    delete ticket.email; // L-2: 개인정보 최소수집 - 취소 즉시 영구 파기
     tickets[ticketId] = ticket;
     this.saveTickets(tickets);
 

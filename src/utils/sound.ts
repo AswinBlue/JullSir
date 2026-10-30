@@ -16,6 +16,18 @@ class SoundManager {
     return this.audioCtx;
   }
 
+  // Pre-emptively unlock AudioContext on first user interaction (Mobile Autoplay Policy)
+  public unlockAudio(): void {
+    try {
+      const ctx = this.getAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   // Play crisp 2-tone chime ("Ding-Dong")
   public playChime(): void {
     try {

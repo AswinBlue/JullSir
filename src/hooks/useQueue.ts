@@ -39,9 +39,22 @@ export function useQueue(queueId?: string) {
       fetchSummary();
     }, 3000);
 
+    // 3. A-1 & A-2: Re-sync on visibility change, focus, and network recovery
+    const handleSync = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchSummary();
+      }
+    };
+    window.addEventListener('visibilitychange', handleSync);
+    window.addEventListener('focus', handleSync);
+    window.addEventListener('online', handleSync);
+
     return () => {
       unsubscribe();
       clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleSync);
+      window.removeEventListener('focus', handleSync);
+      window.removeEventListener('online', handleSync);
     };
   }, [queueId, fetchSummary]);
 
@@ -91,9 +104,30 @@ export function useAdminQueue(adminToken?: string) {
       fetchSummary();
     }, 3000);
 
+    // 3. L-1: Host is actively viewing admin page - send heartbeat every 15 minutes to renew session
+    const heartbeatInterval = setInterval(() => {
+      if (adminToken) {
+        queueRepository.touchQueueSession(adminToken).catch(() => {});
+      }
+    }, 15 * 60 * 1000);
+
+    // 4. A-1 & A-2: Re-sync on visibility change, focus, and network recovery
+    const handleSync = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchSummary();
+      }
+    };
+    window.addEventListener('visibilitychange', handleSync);
+    window.addEventListener('focus', handleSync);
+    window.addEventListener('online', handleSync);
+
     return () => {
       unsubscribe();
       clearInterval(interval);
+      clearInterval(heartbeatInterval);
+      window.removeEventListener('visibilitychange', handleSync);
+      window.removeEventListener('focus', handleSync);
+      window.removeEventListener('online', handleSync);
     };
   }, [adminToken, fetchSummary]);
 

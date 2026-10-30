@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { useTicket } from '../hooks/useTicket';
 import { maskEmail } from '../utils/mask';
+import { soundManager } from '../utils/sound';
 import { MobileContainer } from '../components/common/MobileContainer';
 import { Header } from '../components/common/Header';
 import { Card } from '../components/common/Card';
@@ -22,11 +23,36 @@ import {
 export const TicketDetail: React.FC = () => {
   const { queueId, ticketId } = useParams<{ queueId: string; ticketId: string }>();
   const navigate = useNavigate();
-  const { ticket, queue, waitingAhead, waitingBehind, isMyTurn, loading, error, cancel, refresh } = useTicket(ticketId);
+  const { 
+    ticket, 
+    queue, 
+    waitingAhead, 
+    waitingBehind, 
+    avgWaitTimeMinutes,
+    expectedWaitMinutes,
+    isMyTurn, 
+    loading, 
+    error, 
+    cancel, 
+    refresh 
+  } = useTicket(ticketId);
 
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [hasTriggeredConfetti, setHasTriggeredConfetti] = useState(false);
+
+  // A-3: Pre-emptively unlock mobile AudioContext on first touch / click
+  useEffect(() => {
+    const handleUnlock = () => {
+      soundManager.unlockAudio();
+    };
+    window.addEventListener('click', handleUnlock, { once: true });
+    window.addEventListener('touchstart', handleUnlock, { once: true });
+    return () => {
+      window.removeEventListener('click', handleUnlock);
+      window.removeEventListener('touchstart', handleUnlock);
+    };
+  }, []);
 
   // Trigger confetti when it's user's turn
   useEffect(() => {
@@ -197,6 +223,28 @@ export const TicketDetail: React.FC = () => {
                     {waitingBehind}팀
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* N-3: Expected Wait Time Badge */}
+            {ticket.status === 'WAITING' && !isMyTurn && (
+              <div className="mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-brand-500" />
+                  예상 대기 시간
+                </span>
+                <span className="font-extrabold text-slate-800">
+                  {waitingAhead === 0 ? (
+                    <span className="text-brand-600">곧 입장 차례입니다</span>
+                  ) : (
+                    <span>
+                      약 <strong className="text-brand-600 text-sm">{expectedWaitMinutes}분</strong>
+                      <span className="text-[10px] text-slate-400 font-normal ml-1">
+                        (팀당 평균 {avgWaitTimeMinutes}분 소요)
+                      </span>
+                    </span>
+                  )}
+                </span>
               </div>
             )}
           </Card>

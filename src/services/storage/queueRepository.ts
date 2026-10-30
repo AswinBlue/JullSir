@@ -18,8 +18,10 @@ export interface IQueueRepository {
 
   // Host ticket actions
   callNextTicket(adminToken: string): Promise<Ticket | null>;
+  reCallCurrentTicket(adminToken: string): Promise<Ticket | null>;
   skipTicket(adminToken: string, ticketId: string): Promise<Ticket>;
   completeTicket(adminToken: string, ticketId: string): Promise<Ticket>;
+  closeAndPurgeQueue(adminToken: string): Promise<void>;
 
   // Guest ticket action
   cancelTicket(ticketId: string): Promise<Ticket>;
