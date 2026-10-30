@@ -6,6 +6,8 @@ import { generateQrDataUrl } from '../utils/qr';
 import { MobileContainer } from '../components/common/MobileContainer';
 import { EmailInput, isValidEmail } from '../components/common/EmailInput';
 import { Button } from '../components/common/Button';
+import { Modal } from '../components/common/Modal';
+import { Ticket } from '../types';
 import { 
   Users, 
   ArrowLeft, 
@@ -24,7 +26,8 @@ export const StoreDisplay: React.FC = () => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [emailInput, setEmailInput] = useState('');
   const [issuing, setIssuing] = useState(false);
-  const [issuedTicketNumber, setIssuedTicketNumber] = useState<number | null>(null);
+  const [issuedTicket, setIssuedTicket] = useState<Ticket | null>(null);
+  const [issuedTicketQrUrl, setIssuedTicketQrUrl] = useState<string>('');
   const [inputError, setInputError] = useState('');
 
   // Mobile queue issue URL (for QR code)
@@ -36,6 +39,14 @@ export const StoreDisplay: React.FC = () => {
       generateQrDataUrl(guestIssueUrl).then(setQrDataUrl).catch(console.error);
     }
   }, [guestIssueUrl]);
+
+  // When a ticket is issued on this tablet, generate its personal tracker QR code
+  useEffect(() => {
+    if (issuedTicket && queueId) {
+      const personalTicketUrl = `${baseUrl}/q/${queueId}/ticket/${issuedTicket.id}`;
+      generateQrDataUrl(personalTicketUrl).then(setIssuedTicketQrUrl).catch(console.error);
+    }
+  }, [issuedTicket, queueId, baseUrl]);
 
   // Handle direct tablet ticket issuance with strict email verification
   const handleDirectIssue = async (e: React.FormEvent) => {
@@ -57,13 +68,8 @@ export const StoreDisplay: React.FC = () => {
 
     try {
       const ticket = await queueRepository.issueTicket(queueId, emailInput);
-      setIssuedTicketNumber(ticket.ticketNumber);
+      setIssuedTicket(ticket);
       setEmailInput('');
-
-      // Auto clear success notice after 7 seconds
-      setTimeout(() => {
-        setIssuedTicketNumber(null);
-      }, 7000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '대기 번호표 발급에 실패했습니다.';
       setInputError(msg);
@@ -107,6 +113,11 @@ export const StoreDisplay: React.FC = () => {
   const { queue, waitingCount } = summary;
   const isEmailValid = isValidEmail(emailInput);
 
+  // Calculate stats for newly issued ticket
+  const myTicketNumber = issuedTicket?.ticketNumber || 0;
+  const waitingAhead = issuedTicket ? Math.max(0, myTicketNumber - queue.currentServingNumber - 1) : 0;
+  const waitingBehind = issuedTicket ? Math.max(0, waitingCount - waitingAhead - 1) : 0;
+
   return (
     <MobileContainer theme="dark">
       {/* Top Header: Safe Back Button & Live Status Pill */}
@@ -128,19 +139,6 @@ export const StoreDisplay: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="px-4 py-5 flex-1 flex flex-col justify-between space-y-5">
-        {/* Success Alert Banner when issued on this tablet */}
-        {issuedTicketNumber && (
-          <div className="p-4 rounded-3xl bg-emerald-500/20 border-2 border-emerald-400/50 text-emerald-200 text-center animate-slideUp">
-            <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-1" />
-            <p className="text-base font-bold">
-              대기번호 <span className="text-white text-2xl font-black underline underline-offset-4">#{issuedTicketNumber}</span>번 접수 완료!
-            </p>
-            <p className="text-xs text-emerald-300 mt-1">
-              입력하신 이메일로 호출 시 안내 메일이 발송됩니다.
-            </p>
-          </div>
-        )}
-
         {/* 1. STORE TITLE & DESCRIPTION (Prominently displayed) */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 text-center shadow-lg">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-500/20 text-brand-300 text-xs font-bold mb-2">
@@ -199,7 +197,7 @@ export const StoreDisplay: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. QR CODE SECTION */}
+        {/* 3. QR CODE SECTION FOR MOBILE PASSENGERS */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 text-center shadow-lg flex flex-col items-center">
           <div className="p-3 bg-white rounded-2xl shadow-md inline-block">
             {qrDataUrl ? (
@@ -223,7 +221,7 @@ export const StoreDisplay: React.FC = () => {
           </p>
         </div>
 
-        {/* 4. DIRECT ON-SCREEN ISSUANCE FORM (Requires valid email) */}
+        {/* 4. DIRECT ON-SCREEN ISSUANCE FORM */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-lg space-y-3">
           <div className="text-left">
             <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
@@ -265,6 +263,89 @@ export const StoreDisplay: React.FC = () => {
           </form>
         </div>
       </main>
+
+      {/* 5. NEWLY ISSUED TICKET MODAL WITH ALL WAIT METRICS */}
+      <Modal
+        isOpen={Boolean(issuedTicket)}
+        onClose={() => setIssuedTicket(null)}
+        title="대기표 발급 완료"
+      >
+        {issuedTicket && (
+          <div className="space-y-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+              <CheckCircle2 className="w-7 h-7" />
+            </div>
+
+            <div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                고객님의 대기 번호
+              </span>
+              <div className="text-5xl font-black text-slate-900 mt-1">
+                #{issuedTicket.ticketNumber}번
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                등록된 이메일로 호출 시 안내가 전송됩니다.
+              </p>
+            </div>
+
+            {/* Wait Status 3-box Grid: Current Serving / Ahead / Behind */}
+            <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+              <div className="bg-slate-50 rounded-2xl p-2.5 border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">현재 호출</span>
+                <span className="text-lg font-black text-slate-800 mt-0.5 block">
+                  #{queue.currentServingNumber > 0 ? queue.currentServingNumber : 0}
+                </span>
+              </div>
+
+              <div className="bg-brand-50 rounded-2xl p-2.5 border border-brand-100">
+                <span className="text-[10px] font-bold text-brand-600 uppercase block">내 앞 대기</span>
+                <span className="text-lg font-black text-brand-600 mt-0.5 block">
+                  {waitingAhead}팀
+                </span>
+              </div>
+
+              <div className="bg-slate-50 rounded-2xl p-2.5 border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">내 뒤 대기</span>
+                <span className="text-lg font-black text-slate-700 mt-0.5 block">
+                  {waitingBehind}팀
+                </span>
+              </div>
+            </div>
+
+            {/* Smartphone Live Tracking QR */}
+            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/80 flex items-center gap-3 text-left">
+              <div className="p-1.5 bg-white rounded-xl border border-slate-200 shrink-0">
+                {issuedTicketQrUrl && (
+                  <img
+                    src={issuedTicketQrUrl}
+                    alt="내 순번 QR"
+                    className="w-16 h-16 object-contain"
+                  />
+                )}
+              </div>
+              <div className="flex-1 text-xs text-slate-600">
+                <p className="font-bold text-slate-900 flex items-center gap-1">
+                  <QrCode className="w-3.5 h-3.5 text-brand-500" />
+                  스마트폰으로 실시간 확인
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                  카메라로 스캔하시면 이동 중에도 내 순번 변화를 보실 수 있습니다.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="primary"
+              fullWidth
+              size="lg"
+              onClick={() => setIssuedTicket(null)}
+              className="mt-2 font-bold"
+            >
+              확인 (닫기)
+            </Button>
+          </div>
+        )}
+      </Modal>
 
       {/* Footer Notice */}
       <footer className="py-3 px-4 text-center text-[11px] text-slate-500 border-t border-slate-800/80">

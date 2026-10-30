@@ -6,6 +6,7 @@ const QUEUES_KEY = 'jullsir_queues_v1';
 const TICKETS_KEY = 'jullsir_tickets_v1';
 const CHANNEL_NAME = 'jullsir_broadcast_channel';
 const SYNC_EVENT_KEY = 'jullsir_sync_event_v1';
+export const SESSION_DURATION_MS = 6 * 60 * 60 * 1000; // 6시간 세션 유효 기간
 
 export class MockQueueRepository implements IQueueRepository {
   private channel: BroadcastChannel | null = null;
@@ -118,6 +119,9 @@ export class MockQueueRepository implements IQueueRepository {
     const id = crypto.randomUUID ? crypto.randomUUID() : 'q_' + Math.random().toString(36).substring(2, 9);
     const adminToken = crypto.randomUUID ? crypto.randomUUID() : 'adm_' + Math.random().toString(36).substring(2, 11);
 
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + SESSION_DURATION_MS).toISOString();
+
     const newQueue: Queue = {
       id,
       adminToken,
@@ -126,7 +130,9 @@ export class MockQueueRepository implements IQueueRepository {
       currentServingNumber: 0,
       lastIssuedNumber: 0,
       isClosed: false,
-      createdAt: new Date().toISOString()
+      createdAt: now.toISOString(),
+      lastActiveAt: now.toISOString(),
+      expiresAt
     };
 
     queues[id] = newQueue;
@@ -135,12 +141,71 @@ export class MockQueueRepository implements IQueueRepository {
     return newQueue;
   }
 
+  // Touch queue session to extend expiration by 6 hours
+  public async touchQueueSession(adminToken: string): Promise<Queue> {
+    const queues = this.getQueues();
+    let targetQueue: Queue | null = null;
+
+    for (const q of Object.values(queues)) {
+      if (q.adminToken === adminToken) {
+        targetQueue = q;
+        break;
+      }
+    }
+
+    if (!targetQueue) {
+      throw new Error('유효하지 않은 관리자 토큰입니다.');
+    }
+
+    const now = new Date();
+    targetQueue.lastActiveAt = now.toISOString();
+    targetQueue.expiresAt = new Date(now.getTime() + SESSION_DURATION_MS).toISOString();
+
+    queues[targetQueue.id] = targetQueue;
+    this.saveQueues(queues);
+    this.broadcast({ type: 'QUEUE_UPDATED', queueId: targetQueue.id, queue: targetQueue });
+    return targetQueue;
+  }
+
+  // Purge queue and all associated tickets permanently
+  public async purgeQueue(queueId: string): Promise<void> {
+    const queues = this.getQueues();
+    delete queues[queueId];
+    this.saveQueues(queues);
+
+    const tickets = this.getTickets();
+    let ticketsChanged = false;
+    for (const [tId, t] of Object.entries(tickets)) {
+      if (t.queueId === queueId) {
+        delete tickets[tId];
+        ticketsChanged = true;
+      }
+    }
+    if (ticketsChanged) {
+      this.saveTickets(tickets);
+    }
+  }
+
+  // Auto check and purge expired queues
+  private checkAndPurgeExpiredQueues(): void {
+    const queues = this.getQueues();
+    const now = Date.now();
+
+    for (const [qId, q] of Object.entries(queues)) {
+      if (q.expiresAt && new Date(q.expiresAt).getTime() <= now) {
+        this.purgeQueue(qId);
+      }
+    }
+  }
+
   public async getQueue(queueId: string): Promise<Queue | null> {
+    this.checkAndPurgeExpiredQueues();
     const queues = this.getQueues();
     return queues[queueId] || null;
   }
 
   public async getQueueByAdminToken(adminToken: string): Promise<Queue | null> {
+    this.checkAndPurgeExpiredQueues();
     const queues = this.getQueues();
     for (const q of Object.values(queues)) {
       if (q.adminToken === adminToken) {
@@ -335,6 +400,13 @@ export class MockQueueRepository implements IQueueRepository {
     tickets[ticketId] = ticket;
     this.saveTickets(tickets);
 
+    // 스킵 시에도 호출한 것으로 취급하여 현재 호출/입장 번호 갱신
+    const queues = this.getQueues();
+    queue.currentServingNumber = ticket.ticketNumber;
+    queues[queue.id] = queue;
+    this.saveQueues(queues);
+
+    this.broadcast({ type: 'QUEUE_UPDATED', queueId: queue.id, queue });
     this.broadcast({ type: 'TICKET_STATUS_CHANGED', queueId: queue.id, ticket });
     return ticket;
   }

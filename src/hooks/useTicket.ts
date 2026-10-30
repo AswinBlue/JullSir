@@ -6,6 +6,7 @@ import { notificationService } from '../services/notification/notificationServic
 export function useTicket(ticketId?: string) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [queue, setQueue] = useState<Queue | null>(null);
+  const [waitingCount, setWaitingCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const prevStatusRef = useRef<string | null>(null);
@@ -32,8 +33,14 @@ export function useTicket(ticketId?: string) {
       }
       prevStatusRef.current = t.status;
 
-      const q = await queueRepository.getQueue(t.queueId);
-      setQueue(q);
+      const summary = await queueRepository.getQueueSummary(t.queueId);
+      if (summary) {
+        setQueue(summary.queue);
+        setWaitingCount(summary.waitingCount);
+      } else {
+        const q = await queueRepository.getQueue(t.queueId);
+        setQueue(q);
+      }
       setError(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '티켓 정보를 불러올 수 없습니다.';
@@ -57,8 +64,13 @@ export function useTicket(ticketId?: string) {
       }
     });
 
+    const interval = setInterval(() => {
+      fetchTicketAndQueue();
+    }, 3000);
+
     return () => {
       unsubscribe();
+      clearInterval(interval);
     };
   }, [ticketId, fetchTicketAndQueue]);
 
@@ -75,14 +87,27 @@ export function useTicket(ticketId?: string) {
     }
   };
 
-  // Calculate remaining people ahead
+  // Calculate remaining people ahead and behind
   let waitingAhead = 0;
+  let waitingBehind = 0;
   if (ticket && queue && ticket.status === 'WAITING') {
     waitingAhead = Math.max(0, ticket.ticketNumber - queue.currentServingNumber - 1);
+    waitingBehind = Math.max(0, waitingCount - waitingAhead - 1);
   }
 
   const isMyTurn = ticket?.status === 'CALLED' || 
     (ticket?.status === 'WAITING' && queue?.currentServingNumber === ticket.ticketNumber);
 
-  return { ticket, queue, waitingAhead, isMyTurn, loading, error, cancel, refresh: fetchTicketAndQueue };
+  return { 
+    ticket, 
+    queue, 
+    waitingAhead, 
+    waitingBehind, 
+    waitingCount,
+    isMyTurn, 
+    loading, 
+    error, 
+    cancel, 
+    refresh: fetchTicketAndQueue 
+  };
 }

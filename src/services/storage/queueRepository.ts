@@ -7,6 +7,8 @@ export interface IQueueRepository {
   getQueueByAdminToken(adminToken: string): Promise<Queue | null>;
   updateQueueInfo(adminToken: string, name: string, description?: string): Promise<Queue>;
   toggleQueueStatus(adminToken: string, isClosed: boolean): Promise<Queue>;
+  touchQueueSession(adminToken: string): Promise<Queue>;
+  purgeQueue(queueId: string): Promise<void>;
 
   // Ticket operations
   issueTicket(queueId: string, email: string): Promise<Ticket>;

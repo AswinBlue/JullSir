@@ -20,6 +20,8 @@ export interface Queue {
   isClosed: boolean;
   createdAt: string;
   updatedAt?: string;
+  lastActiveAt?: string; // 6시간 세션 타임아웃 추적
+  expiresAt?: string;    // 만료 시각 (lastActiveAt + 6시간)
 }
 
 export interface Ticket {

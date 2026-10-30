@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAdminQueue } from '../hooks/useQueue';
 import { queueRepository } from '../services/storage/mockQueueRepository';
 import { generateQrDataUrl, downloadQrImage } from '../utils/qr';
+import { maskEmail } from '../utils/mask';
 import { MobileContainer } from '../components/common/MobileContainer';
 import { Header } from '../components/common/Header';
 import { Card } from '../components/common/Card';
@@ -23,7 +24,8 @@ import {
   Clock,
   Download,
   Mail,
-  ExternalLink
+  ExternalLink,
+  HelpCircle
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
@@ -40,6 +42,10 @@ export const AdminDashboard: React.FC = () => {
   // QR Code Modal
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
+
+  // Session Info Modal
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+  const [remainingTimeText, setRemainingTimeText] = useState('');
 
   // Host Action State
   const [calling, setCalling] = useState(false);
@@ -59,6 +65,48 @@ export const AdminDashboard: React.FC = () => {
       }
     }
   }, [summary, guestIssueUrl]);
+
+  // Touch session on mount & calculate remaining session time
+  useEffect(() => {
+    if (adminToken) {
+      queueRepository.touchQueueSession(adminToken).catch(console.error);
+    }
+  }, [adminToken]);
+
+  // Update remaining session time every 30 seconds
+  useEffect(() => {
+    if (!summary?.queue.expiresAt) return;
+
+    const updateRemaining = () => {
+      const expiresAtMs = new Date(summary.queue.expiresAt!).getTime();
+      const diffMs = expiresAtMs - Date.now();
+
+      if (diffMs <= 0) {
+        setRemainingTimeText('세션 만료됨 (대기열 자동 정리)');
+        refresh();
+      } else {
+        const totalMinutes = Math.floor(diffMs / (1000 * 60));
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        setRemainingTimeText(`${hours}시간 ${minutes}분 뒤 자동 중지`);
+      }
+    };
+
+    updateRemaining();
+    const timer = setInterval(updateRemaining, 30000);
+    return () => clearInterval(timer);
+  }, [summary?.queue.expiresAt, refresh]);
+
+  const handleExtendSession = async () => {
+    if (!adminToken) return;
+    try {
+      await queueRepository.touchQueueSession(adminToken);
+      await refresh();
+      alert('세션이 6시간 연장되었습니다.');
+    } catch {
+      alert('세션 연장 실패');
+    }
+  };
 
   // Call Next Ticket
   const handleCallNext = async () => {
@@ -188,6 +236,31 @@ export const AdminDashboard: React.FC = () => {
       />
 
       <main className="px-4 py-5 space-y-5 flex-1">
+        {/* Session Expiration & Privacy Banner */}
+        {remainingTimeText && (
+          <div className="flex items-center justify-between px-1 text-xs text-slate-400">
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <span>{remainingTimeText}</span>
+              <button
+                type="button"
+                onClick={() => setIsSessionModalOpen(true)}
+                className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
+                title="대기열 자동 정리 안내"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={handleExtendSession}
+              className="text-[11px] text-brand-600 hover:underline font-semibold"
+            >
+              세션 연장 (+6시간)
+            </button>
+          </div>
+        )}
+
         {/* Title & Info Card (with Edit Button) */}
         <Card className="p-4 bg-white border border-slate-200 shadow-sm flex items-start justify-between">
           <div className="space-y-1">
@@ -277,7 +350,7 @@ export const AdminDashboard: React.FC = () => {
             {nextTicket?.email && (
               <span className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 flex items-center gap-1 font-medium">
                 <Mail className="w-3.5 h-3.5 text-slate-400" />
-                이메일 알림 등록됨
+                {maskEmail(nextTicket.email)}
               </span>
             )}
           </div>
@@ -361,7 +434,7 @@ export const AdminDashboard: React.FC = () => {
                         <Badge status={t.status} />
                         {t.email && (
                           <span className="text-[11px] text-slate-500 truncate max-w-[140px] sm:max-w-[200px]">
-                            {t.email}
+                            {maskEmail(t.email)}
                           </span>
                         )}
                       </div>
@@ -380,7 +453,7 @@ export const AdminDashboard: React.FC = () => {
                         className="px-2.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1 shadow-sm transition-colors"
                       >
                         <CheckCircle className="w-3.5 h-3.5" />
-                        입장 완료
+                        입장 완료 처리 하기
                       </button>
                     )}
                     {t.status === 'WAITING' && (
@@ -453,6 +526,35 @@ export const AdminDashboard: React.FC = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Session Expiration Help Modal */}
+      <Modal
+        isOpen={isSessionModalOpen}
+        onClose={() => setIsSessionModalOpen(false)}
+        title="대기열 자동 정리 안내"
+      >
+        <div className="space-y-4 text-xs text-slate-600 leading-relaxed text-left">
+          <div className="p-3.5 bg-brand-50 border border-brand-100 rounded-2xl text-slate-800 space-y-1.5">
+            <p className="font-bold text-sm text-brand-700">🔒 개인정보 보호 자동 파기 정책</p>
+            <p>
+              고객님의 이메일 정보와 대기표 데이터는 관리자가 <strong>6시간 이상 페이지에 접속하지 않을 경우</strong> 서버 및 로컬에서 영구히 자동 삭제됩니다.
+            </p>
+          </div>
+
+          <p>
+            • <strong>세션 자동 연장:</strong> 관리자 대시보드 화면을 열어두시거나 페이지를 새로고침하시면 남은 시간이 자동으로 6시간으로 갱신됩니다.<br />
+            • <strong>수동 연장:</strong> 상단의 <code>세션 연장 (+6시간)</code> 버튼을 클릭하여 즉시 연장할 수 있습니다.
+          </p>
+
+          <Button
+            variant="primary"
+            fullWidth
+            onClick={() => setIsSessionModalOpen(false)}
+          >
+            확인
+          </Button>
+        </div>
       </Modal>
 
       {/* Printable QR Code Modal */}

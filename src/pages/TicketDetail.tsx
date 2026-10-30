@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { useTicket } from '../hooks/useTicket';
+import { maskEmail } from '../utils/mask';
 import { MobileContainer } from '../components/common/MobileContainer';
 import { Header } from '../components/common/Header';
 import { Card } from '../components/common/Card';
@@ -21,7 +22,7 @@ import {
 export const TicketDetail: React.FC = () => {
   const { queueId, ticketId } = useParams<{ queueId: string; ticketId: string }>();
   const navigate = useNavigate();
-  const { ticket, queue, waitingAhead, isMyTurn, loading, error, cancel, refresh } = useTicket(ticketId);
+  const { ticket, queue, waitingAhead, waitingBehind, isMyTurn, loading, error, cancel, refresh } = useTicket(ticketId);
 
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -168,25 +169,32 @@ export const TicketDetail: React.FC = () => {
               <Badge status={ticket.status} />
               {ticket.email && (
                 <span className="text-xs text-slate-400 truncate max-w-[150px]">
-                  {ticket.email}
+                  {maskEmail(ticket.email)}
                 </span>
               )}
             </div>
 
-            {/* Waiting Ahead Stats */}
+            {/* Waiting Ahead / Behind / Current Serving 3-box Grid */}
             {ticket.status === 'WAITING' && !isMyTurn && (
-              <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 rounded-2xl p-3 text-center">
-                  <span className="text-[11px] font-bold text-slate-400 block uppercase">현재 호출 번호</span>
-                  <span className="text-2xl font-extrabold text-slate-800 mt-0.5 block">
+              <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
+                <div className="bg-slate-50 rounded-2xl p-2.5">
+                  <span className="text-[10px] font-bold text-slate-400 block uppercase">현재 호출</span>
+                  <span className="text-xl font-extrabold text-slate-800 mt-0.5 block">
                     #{queue.currentServingNumber > 0 ? queue.currentServingNumber : 0}
                   </span>
                 </div>
 
-                <div className="bg-brand-50 rounded-2xl p-3 text-center">
-                  <span className="text-[11px] font-bold text-brand-600 block uppercase">내 앞 대기 팀</span>
-                  <span className="text-2xl font-black text-brand-600 mt-0.5 block">
-                    {waitingAhead} <span className="text-xs font-bold">팀</span>
+                <div className="bg-brand-50 rounded-2xl p-2.5 border border-brand-100">
+                  <span className="text-[10px] font-bold text-brand-600 block uppercase">내 앞 대기</span>
+                  <span className="text-xl font-black text-brand-600 mt-0.5 block">
+                    {waitingAhead}팀
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 rounded-2xl p-2.5">
+                  <span className="text-[10px] font-bold text-slate-400 block uppercase">내 뒤 대기</span>
+                  <span className="text-xl font-extrabold text-slate-700 mt-0.5 block">
+                    {waitingBehind}팀
                   </span>
                 </div>
               </div>
