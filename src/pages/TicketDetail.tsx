@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { useTicket } from '../hooks/useTicket';
+import { MobileContainer } from '../components/common/MobileContainer';
 import { Header } from '../components/common/Header';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -56,32 +57,34 @@ export const TicketDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-slate-500 text-sm font-medium">내 대기 정보를 확인하는 중...</p>
+      <MobileContainer>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-slate-500 text-sm font-medium">내 대기 정보를 확인하는 중...</p>
+          </div>
         </div>
-      </div>
+      </MobileContainer>
     );
   }
 
   if (error || !ticket || !queue) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <AlertTriangle className="w-12 h-12 text-rose-500 mb-3" />
-        <h2 className="text-xl font-bold text-slate-900 mb-1">티켓 정보를 찾을 수 없습니다</h2>
-        <p className="text-slate-500 text-sm mb-6">{error || '유효하지 않은 티켓입니다.'}</p>
-        <Button onClick={() => navigate(queueId ? `/q/${queueId}` : '/')}>
-          다시 접수하기
-        </Button>
-      </div>
+      <MobileContainer>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <AlertTriangle className="w-12 h-12 text-rose-500 mb-3" />
+          <h2 className="text-xl font-bold text-slate-900 mb-1">티켓 정보를 찾을 수 없습니다</h2>
+          <p className="text-slate-500 text-sm mb-6">{error || '유효하지 않은 티켓입니다.'}</p>
+          <Button onClick={() => navigate(queueId ? `/q/${queueId}` : '/')}>
+            다시 접수하기
+          </Button>
+        </div>
+      </MobileContainer>
     );
   }
 
   return (
-    <div className={`min-h-screen flex flex-col transition-colors duration-500 ${
-      isMyTurn ? 'bg-gradient-to-b from-emerald-500 via-emerald-600 to-teal-700 text-white' : 'bg-slate-50 text-slate-900'
-    }`}>
+    <MobileContainer theme={isMyTurn ? 'dark' : 'light'}>
       {/* Top Header */}
       <Header
         title={queue.name}
@@ -101,7 +104,7 @@ export const TicketDetail: React.FC = () => {
         }
       />
 
-      <main className="max-w-md mx-auto w-full px-5 py-6 flex-1 flex flex-col justify-between">
+      <main className="px-5 py-6 flex-1 flex flex-col justify-between">
         <div className="space-y-6">
           {/* Status Alert Banner */}
           {isMyTurn ? (
@@ -260,6 +263,6 @@ export const TicketDetail: React.FC = () => {
           </div>
         </div>
       </Modal>
-    </div>
+    </MobileContainer>
   );
 };

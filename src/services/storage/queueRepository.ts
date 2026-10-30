@@ -9,7 +9,7 @@ export interface IQueueRepository {
   toggleQueueStatus(adminToken: string, isClosed: boolean): Promise<Queue>;
 
   // Ticket operations
-  issueTicket(queueId: string, email?: string): Promise<Ticket>;
+  issueTicket(queueId: string, email: string): Promise<Ticket>;
   getTicket(ticketId: string): Promise<Ticket | null>;
   getQueueSummary(queueId: string): Promise<QueueSummary | null>;
   getQueueSummaryByAdminToken(adminToken: string): Promise<QueueSummary | null>;

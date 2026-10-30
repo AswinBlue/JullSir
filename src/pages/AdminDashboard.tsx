@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAdminQueue } from '../hooks/useQueue';
 import { queueRepository } from '../services/storage/mockQueueRepository';
 import { generateQrDataUrl, downloadQrImage } from '../utils/qr';
+import { MobileContainer } from '../components/common/MobileContainer';
 import { Header } from '../components/common/Header';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -130,30 +131,34 @@ export const AdminDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-slate-500 font-medium text-sm">관리자 정보를 불러오는 중...</p>
+      <MobileContainer>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-slate-500 font-medium text-sm">관리자 정보를 불러오는 중...</p>
+          </div>
         </div>
-      </div>
+      </MobileContainer>
     );
   }
 
   if (error || !summary) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <AlertCircle className="w-12 h-12 text-rose-500 mb-3" />
-        <h2 className="text-xl font-bold text-slate-900 mb-1">관리자 접근 실패</h2>
-        <p className="text-slate-500 text-sm mb-6">{error || '올바르지 않은 관리자 토큰입니다.'}</p>
-        <Button onClick={() => navigate('/')}>메인으로 이동</Button>
-      </div>
+      <MobileContainer>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <AlertCircle className="w-12 h-12 text-rose-500 mb-3" />
+          <h2 className="text-xl font-bold text-slate-900 mb-1">관리자 접근 실패</h2>
+          <p className="text-slate-500 text-sm mb-6">{error || '올바르지 않은 관리자 토큰입니다.'}</p>
+          <Button onClick={() => navigate('/')}>메인으로 이동</Button>
+        </div>
+      </MobileContainer>
     );
   }
 
   const { queue, waitingCount, recentTickets, nextTicket } = summary;
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
+    <MobileContainer>
       {/* Top Admin Header */}
       <Header
         title={queue.name}
@@ -182,7 +187,7 @@ export const AdminDashboard: React.FC = () => {
         }
       />
 
-      <main className="max-w-2xl mx-auto w-full px-4 py-5 space-y-5 flex-1">
+      <main className="px-4 py-5 space-y-5 flex-1">
         {/* Title & Info Card (with Edit Button) */}
         <Card className="p-4 bg-white border border-slate-200 shadow-sm flex items-start justify-between">
           <div className="space-y-1">
@@ -492,6 +497,6 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </Modal>
-    </div>
+    </MobileContainer>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MobileContainer } from '../components/common/MobileContainer';
 import { Header } from '../components/common/Header';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -68,10 +69,10 @@ export const CreateQueue: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <MobileContainer>
       <Header title="새 대기열 만들기" showBack backTo="/" />
 
-      <main className="max-w-md mx-auto w-full px-5 py-6 flex-1">
+      <main className="px-5 py-6 flex-1">
         {!createdQueue ? (
           <div>
             <div className="mb-6">
@@ -232,6 +233,6 @@ export const CreateQueue: React.FC = () => {
           </div>
         )}
       </main>
-    </div>
+    </MobileContainer>
   );
 };

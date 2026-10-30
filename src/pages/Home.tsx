@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MobileContainer } from '../components/common/MobileContainer';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
@@ -48,9 +49,9 @@ export const Home: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+    <MobileContainer>
       {/* Top Header */}
-      <header className="px-6 py-5 max-w-md mx-auto w-full flex items-center justify-between">
+      <header className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-2xl bg-brand-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/25">
             <Users className="w-5 h-5 stroke-[2.5]" />
@@ -59,7 +60,7 @@ export const Home: React.FC = () => {
             <h1 className="font-extrabold text-xl tracking-tight text-slate-900 leading-none">
               JullSir<span className="text-brand-500 text-sm font-bold ml-1">줄서</span>
             </h1>
-            <p className="text-xs text-slate-400 font-medium mt-0.5">무비용 실시간 대기열</p>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">실시간 모바일 대기열</p>
           </div>
         </div>
         <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1">
@@ -69,7 +70,7 @@ export const Home: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-md mx-auto w-full px-5 py-4 flex-1 flex flex-col justify-center">
+      <main className="px-5 py-6 flex-1 flex flex-col justify-center">
         {/* Hero Section */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 border border-brand-100 text-brand-600 text-xs font-semibold mb-3">
@@ -213,6 +214,6 @@ export const Home: React.FC = () => {
           </div>
         </form>
       </Modal>
-    </div>
+    </MobileContainer>
   );
 };

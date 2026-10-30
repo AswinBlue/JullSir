@@ -2,17 +2,16 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueue } from '../hooks/useQueue';
 import { queueRepository } from '../services/storage/mockQueueRepository';
-import { notificationService } from '../services/notification/notificationService';
+import { MobileContainer } from '../components/common/MobileContainer';
+import { EmailInput, isValidEmail } from '../components/common/EmailInput';
 import { Header } from '../components/common/Header';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { 
   Users, 
-  Bell, 
-  Mail, 
-  CheckCircle, 
   AlertCircle, 
-  Info
+  Info,
+  Ticket
 } from 'lucide-react';
 
 export const QueueIssue: React.FC = () => {
@@ -21,28 +20,8 @@ export const QueueIssue: React.FC = () => {
   const { summary, loading, error } = useQueue(queueId);
 
   const [email, setEmail] = useState('');
-  const [notificationType, setNotificationType] = useState<'push' | 'email'>('push');
-  const [pushGranted, setPushGranted] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [issueError, setIssueError] = useState('');
-
-  const isIOS = notificationService.isIOS();
-
-  // If iOS browser, default to email notification
-  React.useEffect(() => {
-    if (isIOS) {
-      setNotificationType('email');
-    }
-  }, [isIOS]);
-
-  const handleRequestPush = async () => {
-    const granted = await notificationService.requestPermission();
-    setPushGranted(granted);
-    if (!granted) {
-      alert('브라우저 알림 권한이 차단되었습니다. 이메일 알림을 이용해 주세요.');
-      setNotificationType('email');
-    }
-  };
 
   const handleIssueTicket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,19 +32,16 @@ export const QueueIssue: React.FC = () => {
       return;
     }
 
+    if (!isValidEmail(email)) {
+      setIssueError('올바른 이메일 주소를 입력해 주세요.');
+      return;
+    }
+
     setIssueError('');
     setIssuing(true);
 
     try {
-      // If push requested, try to ensure permission
-      if (notificationType === 'push' && !pushGranted) {
-        await notificationService.requestPermission();
-      }
-
-      const ticket = await queueRepository.issueTicket(
-        queueId,
-        notificationType === 'email' ? email : undefined
-      );
+      const ticket = await queueRepository.issueTicket(queueId, email);
 
       // Save ticket id to local storage for quick access
       localStorage.setItem(`jullsir_my_ticket_${queueId}`, ticket.id);
@@ -79,52 +55,62 @@ export const QueueIssue: React.FC = () => {
     }
   };
 
+  const isEmailValid = isValidEmail(email);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-slate-500 text-sm font-medium">대기열 정보를 불러오는 중...</p>
+      <MobileContainer>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-slate-500 text-sm font-medium">대기열 정보를 불러오는 중...</p>
+          </div>
         </div>
-      </div>
+      </MobileContainer>
     );
   }
 
   if (error || !summary) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <AlertCircle className="w-12 h-12 text-rose-500 mb-3" />
-        <h2 className="text-xl font-bold text-slate-900 mb-1">대기열을 찾을 수 없습니다</h2>
-        <p className="text-slate-500 text-sm mb-6">{error || '유효하지 않은 대기열 코드입니다.'}</p>
-        <Button onClick={() => navigate('/')}>메인으로 이동</Button>
-      </div>
+      <MobileContainer>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <AlertCircle className="w-12 h-12 text-rose-500 mb-3" />
+          <h2 className="text-xl font-bold text-slate-900 mb-1">대기열을 찾을 수 없습니다</h2>
+          <p className="text-slate-500 text-sm mb-6">{error || '유효하지 않은 대기열 코드입니다.'}</p>
+          <Button onClick={() => navigate('/')}>메인으로 이동</Button>
+        </div>
+      </MobileContainer>
     );
   }
 
   const { queue, waitingCount } = summary;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <MobileContainer>
       <Header title={queue.name} showBack backTo="/" />
 
-      <main className="max-w-md mx-auto w-full px-5 py-6 flex-1 flex flex-col justify-between">
-        <div className="space-y-6">
-          {/* Store Info Banner */}
-          <div className="text-center">
-            <span className="text-xs font-bold text-brand-600 uppercase tracking-wider block mb-1">
-              온라인 실시간 대기 등록
+      <main className="px-5 py-6 flex-1 flex flex-col justify-between space-y-5">
+        <div className="space-y-5">
+          {/* 1. Store Title & Description Banner */}
+          <div className="text-center bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
+            <span className="text-[11px] font-bold text-brand-600 uppercase tracking-wider block mb-1">
+              실시간 온라인 대기표
             </span>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-snug">
               {queue.name}
             </h2>
+
             {queue.description ? (
-              <p className="text-xs text-slate-500 mt-1.5 px-4 leading-relaxed">
-                {queue.description}
-              </p>
-            ) : null}
+              <div className="mt-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-600 text-left flex items-start gap-2 leading-relaxed">
+                <Info className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
+                <span>{queue.description}</span>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 mt-1">순번이 되면 이메일로 호출 안내를 드립니다.</p>
+            )}
           </div>
 
-          {/* Current Wait Metric Card */}
+          {/* 2. Current Wait Metric Card */}
           <Card className="p-5 text-center bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-lg shadow-brand-500/20 border-0">
             <span className="text-xs font-semibold text-brand-100 uppercase tracking-wider block">
               현재 내 앞 대기 인원
@@ -138,7 +124,7 @@ export const QueueIssue: React.FC = () => {
             </p>
           </Card>
 
-          {/* Closed Banner */}
+          {/* 3. Closed Notice or Ticket Issuance Form */}
           {queue.isClosed ? (
             <div className="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-center text-rose-800 space-y-1">
               <AlertCircle className="w-6 h-6 text-rose-500 mx-auto mb-1" />
@@ -148,109 +134,40 @@ export const QueueIssue: React.FC = () => {
               </p>
             </div>
           ) : (
-            /* Notification Choice & Form */
-            <Card elevated className="p-6">
-              <form onSubmit={handleIssueTicket} className="space-y-4">
-                <label className="block text-xs font-bold text-slate-800">
-                  호출 알림 방식 선택
+            <Card elevated className="p-6 space-y-4">
+              <div className="text-left">
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  호출 알림 이메일 등록 <span className="text-rose-500">* (필수)</span>
                 </label>
+                <p className="text-xs text-slate-500">
+                  순번이 되었을 때 입장 안내 메일을 받으실 이메일을 입력해 주세요.
+                </p>
+              </div>
 
-                {/* Option 1: Web Push */}
-                <div
-                  onClick={() => setNotificationType('push')}
-                  className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
-                    notificationType === 'push'
-                      ? 'border-brand-500 bg-brand-50/30'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    notificationType === 'push' ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    <Bell className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-slate-900">웹 푸시 알림</span>
-                      <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-brand-100 text-brand-700">추천</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      앱 설치 없이 브라우저 상단 팝업 및 진동으로 즉각 수신
-                    </p>
-                    {notificationType === 'push' && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRequestPush();
-                        }}
-                        className="mt-2 text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1"
-                      >
-                        {pushGranted ? (
-                          <span className="text-emerald-600 flex items-center gap-1">
-                            <CheckCircle className="w-3.5 h-3.5" /> 알림 권한 허용됨
-                          </span>
-                        ) : (
-                          '👉 알림 권한 미리 허용하기'
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Option 2: Email */}
-                <div
-                  onClick={() => setNotificationType('email')}
-                  className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
-                    notificationType === 'email'
-                      ? 'border-brand-500 bg-brand-50/30'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    notificationType === 'email' ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    <Mail className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-slate-900">이메일 알림</span>
-                      {isIOS && (
-                        <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">아이폰 추천</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      순번 도달 시 등록하신 이메일로 알림 전송
-                    </p>
-
-                    {notificationType === 'email' && (
-                      <div className="mt-2.5">
-                        <input
-                          type="email"
-                          required
-                          placeholder="your-email@example.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {issueError && (
-                  <p className="text-xs text-rose-500 font-medium text-center">{issueError}</p>
-                )}
+              <form onSubmit={handleIssueTicket} className="space-y-4">
+                <EmailInput
+                  value={email}
+                  onChange={setEmail}
+                  disabled={issuing}
+                  placeholder="예: yourname@example.com"
+                  theme="light"
+                  errorMessage={issueError}
+                />
 
                 <Button
                   type="submit"
                   variant="primary"
                   size="xl"
                   fullWidth
-                  disabled={issuing || (notificationType === 'email' && !email.trim())}
-                  className="font-extrabold text-base shadow-lg shadow-brand-500/25 mt-2"
+                  disabled={issuing || !isEmailValid}
+                  className="font-extrabold text-base shadow-lg shadow-brand-500/25 mt-2 gap-2"
                 >
-                  {issuing ? '순번표 발급 중...' : '대기 번호표 뽑기'}
+                  <Ticket className="w-5 h-5" />
+                  {issuing 
+                    ? '순번표 발급 중...' 
+                    : isEmailValid 
+                    ? '대기 번호표 뽑기' 
+                    : '이메일을 정확히 입력해 주세요'}
                 </Button>
               </form>
             </Card>
@@ -258,11 +175,11 @@ export const QueueIssue: React.FC = () => {
         </div>
 
         {/* Bottom Notice */}
-        <div className="mt-6 text-center text-xs text-slate-400 flex items-center justify-center gap-1">
+        <div className="mt-4 text-center text-xs text-slate-400 flex items-center justify-center gap-1">
           <Info className="w-3.5 h-3.5" />
           발급 후 창을 닫아도 URL을 통해 언제든 순번 조회가 가능합니다.
         </div>
       </main>
-    </div>
+    </MobileContainer>
   );
 };

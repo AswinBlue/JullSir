@@ -5,17 +5,35 @@ import { notificationService } from '../notification/notificationService';
 const QUEUES_KEY = 'jullsir_queues_v1';
 const TICKETS_KEY = 'jullsir_tickets_v1';
 const CHANNEL_NAME = 'jullsir_broadcast_channel';
+const SYNC_EVENT_KEY = 'jullsir_sync_event_v1';
 
 export class MockQueueRepository implements IQueueRepository {
   private channel: BroadcastChannel | null = null;
   private subscribers: Set<(event: QueueEvent) => void> = new Set();
 
   constructor() {
-    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-      this.channel = new BroadcastChannel(CHANNEL_NAME);
-      this.channel.onmessage = (event: MessageEvent<QueueEvent>) => {
-        this.notifyLocalSubscribers(event.data);
-      };
+    if (typeof window !== 'undefined') {
+      // 1. BroadcastChannel for modern browsers
+      if ('BroadcastChannel' in window) {
+        this.channel = new BroadcastChannel(CHANNEL_NAME);
+        this.channel.onmessage = (event: MessageEvent<QueueEvent>) => {
+          this.notifyLocalSubscribers(event.data);
+        };
+      }
+
+      // 2. Window Storage Event for cross-window / cross-tab bulletproof sync
+      window.addEventListener('storage', (event: StorageEvent) => {
+        if (event.key === SYNC_EVENT_KEY && event.newValue) {
+          try {
+            const parsed = JSON.parse(event.newValue);
+            if (parsed && parsed.event) {
+              this.notifyLocalSubscribers(parsed.event);
+            }
+          } catch {
+            // ignore
+          }
+        }
+      });
     }
   }
 
@@ -55,11 +73,23 @@ export class MockQueueRepository implements IQueueRepository {
 
   private broadcast(event: QueueEvent): void {
     this.notifyLocalSubscribers(event);
+
+    // 1. Post to BroadcastChannel
     if (this.channel) {
       try {
         this.channel.postMessage(event);
       } catch (err) {
         console.warn('BroadcastChannel error:', err);
+      }
+    }
+
+    // 2. Trigger native storage event for other windows/tabs
+    const storage = this.getStorage();
+    if (storage) {
+      try {
+        storage.setItem(SYNC_EVENT_KEY, JSON.stringify({ event, timestamp: Date.now() }));
+      } catch {
+        // ignore
       }
     }
   }
@@ -173,7 +203,7 @@ export class MockQueueRepository implements IQueueRepository {
 
   // --- Ticket Operations ---
 
-  public async issueTicket(queueId: string, email?: string): Promise<Ticket> {
+  public async issueTicket(queueId: string, email: string): Promise<Ticket> {
     const queues = this.getQueues();
     const queue = queues[queueId];
 
@@ -183,6 +213,13 @@ export class MockQueueRepository implements IQueueRepository {
 
     if (queue.isClosed) {
       throw new Error('현재 대기열 접수가 마감되었습니다.');
+    }
+
+    // Email validation
+    const trimmedEmail = email?.trim() || '';
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      throw new Error('올바른 이메일 주소를 입력해 주세요.');
     }
 
     // Atomic increment
@@ -196,7 +233,7 @@ export class MockQueueRepository implements IQueueRepository {
       id: ticketId,
       queueId,
       ticketNumber: nextTicketNumber,
-      email: email?.trim() || undefined,
+      email: trimmedEmail,
       status: 'WAITING',
       createdAt: new Date().toISOString()
     };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { QueueSummary, QueueEvent } from '../types';
 import { queueRepository } from '../services/storage/mockQueueRepository';
 
@@ -27,14 +27,21 @@ export function useQueue(queueId?: string) {
   useEffect(() => {
     fetchSummary();
 
+    // 1. Event subscription
     const unsubscribe = queueRepository.subscribe((event: QueueEvent) => {
       if (queueId && event.queueId === queueId) {
         fetchSummary();
       }
     });
 
+    // 2. Safety 3-second background polling
+    const interval = setInterval(() => {
+      fetchSummary();
+    }, 3000);
+
     return () => {
       unsubscribe();
+      clearInterval(interval);
     };
   }, [queueId, fetchSummary]);
 
@@ -45,6 +52,7 @@ export function useAdminQueue(adminToken?: string) {
   const [summary, setSummary] = useState<QueueSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const queueIdRef = useRef<string | null>(null);
 
   const fetchSummary = useCallback(async () => {
     if (!adminToken) {
@@ -57,6 +65,7 @@ export function useAdminQueue(adminToken?: string) {
         setError('존재하지 않거나 만료된 관리자 토큰입니다.');
       } else {
         setSummary(data);
+        queueIdRef.current = data.queue.id;
         setError(null);
       }
     } catch (err: unknown) {
@@ -70,18 +79,23 @@ export function useAdminQueue(adminToken?: string) {
   useEffect(() => {
     fetchSummary();
 
+    // 1. Realtime event-driven sync
     const unsubscribe = queueRepository.subscribe((event: QueueEvent) => {
-      if (summary?.queue.id && event.queueId === summary.queue.id) {
-        fetchSummary();
-      } else if (!summary) {
+      if (!queueIdRef.current || event.queueId === queueIdRef.current) {
         fetchSummary();
       }
     });
 
+    // 2. 3-second safety polling for bulletproof synchronization across tabs/windows
+    const interval = setInterval(() => {
+      fetchSummary();
+    }, 3000);
+
     return () => {
       unsubscribe();
+      clearInterval(interval);
     };
-  }, [adminToken, summary?.queue.id, fetchSummary]);
+  }, [adminToken, fetchSummary]);
 
   return { summary, loading, error, refresh: fetchSummary };
 }

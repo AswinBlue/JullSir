@@ -26,7 +26,7 @@ describe('JullSir Queue & Ticket Logic Tests', () => {
     
     const t1 = await repo.issueTicket(queue.id, 'user1@test.com');
     const t2 = await repo.issueTicket(queue.id, 'user2@test.com');
-    const t3 = await repo.issueTicket(queue.id);
+    const t3 = await repo.issueTicket(queue.id, 'user3@test.com');
 
     expect(t1.ticketNumber).toBe(1);
     expect(t2.ticketNumber).toBe(2);
@@ -37,10 +37,25 @@ describe('JullSir Queue & Ticket Logic Tests', () => {
     expect(summary?.queue.lastIssuedNumber).toBe(3);
   });
 
+  it('유효하지 않은 이메일이나 빈 이메일 입력 시 발급이 거부되어야 한다', async () => {
+    const queue = await repo.createQueue('이메일 검증 테스트');
+
+    // 빈 이메일
+    await expect(repo.issueTicket(queue.id, '')).rejects.toThrow('이메일');
+
+    // 잘못된 포맷
+    await expect(repo.issueTicket(queue.id, 'not-an-email')).rejects.toThrow('이메일');
+    await expect(repo.issueTicket(queue.id, 'test@')).rejects.toThrow('이메일');
+
+    // 올바른 이메일은 성공
+    const validTicket = await repo.issueTicket(queue.id, 'valid@example.com');
+    expect(validTicket.ticketNumber).toBe(1);
+  });
+
   it('다음 번호 호출(Call Next) 시 순번이 갱신되고 대기 인원이 차감되어야 한다', async () => {
     const queue = await repo.createQueue('호출 테스트');
-    await repo.issueTicket(queue.id); // #1
-    await repo.issueTicket(queue.id); // #2
+    await repo.issueTicket(queue.id, 'user1@test.com'); // #1
+    await repo.issueTicket(queue.id, 'user2@test.com'); // #2
 
     const called = await repo.callNextTicket(queue.adminToken);
     expect(called?.ticketNumber).toBe(1);
@@ -53,8 +68,8 @@ describe('JullSir Queue & Ticket Logic Tests', () => {
 
   it('대기자가 직접 티켓을 취소하면 대기 인원에서 제외되어야 한다', async () => {
     const queue = await repo.createQueue('취소 테스트');
-    const t1 = await repo.issueTicket(queue.id);
-    const t2 = await repo.issueTicket(queue.id);
+    const t1 = await repo.issueTicket(queue.id, 'user1@test.com');
+    const t2 = await repo.issueTicket(queue.id, 'user2@test.com');
 
     await repo.cancelTicket(t1.id);
 
@@ -70,6 +85,6 @@ describe('JullSir Queue & Ticket Logic Tests', () => {
     const queue = await repo.createQueue('마감 테스트');
     await repo.toggleQueueStatus(queue.adminToken, true); // 마감
 
-    await expect(repo.issueTicket(queue.id)).rejects.toThrow('마감');
+    await expect(repo.issueTicket(queue.id, 'user@test.com')).rejects.toThrow('마감');
   });
 });
