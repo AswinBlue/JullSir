@@ -64,7 +64,7 @@ export const Home: React.FC = () => {
         </div>
         <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-          100% 무료
+          실시간 대기열
         </span>
       </header>
 
@@ -74,7 +74,7 @@ export const Home: React.FC = () => {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 border border-brand-100 text-brand-600 text-xs font-semibold mb-3">
             <Sparkles className="w-3.5 h-3.5" />
-            앱 설치 없이 웹 브라우저에서 바로
+            스마트폰으로 간편하게 바로 시작
           </div>
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
             줄 서는 사람도,<br />
@@ -147,15 +147,15 @@ export const Home: React.FC = () => {
           </div>
           <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm">
             <ShieldCheck className="w-5 h-5 text-brand-500 mx-auto mb-1.5" />
-            <span className="text-[11px] font-bold text-slate-700 block">원자적 동시성</span>
-            <span className="text-[10px] text-slate-400">번호 중복 방지</span>
+            <span className="text-[11px] font-bold text-slate-700 block">안전한 순번 발급</span>
+            <span className="text-[10px] text-slate-400">순번 중복 완벽 방지</span>
           </div>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="py-4 text-center text-xs text-slate-400 border-t border-slate-100">
-        <p>JullSir (줄서) • Zero-Cost Cloud Queueing Solution</p>
+        <p>JullSir (줄서) • 스마트 실시간 모바일 대기열 서비스</p>
       </footer>
 
       {/* Guest Entry Modal */}
