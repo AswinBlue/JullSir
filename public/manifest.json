@@ -1,0 +1,16 @@
+{
+  "short_name": "줄서",
+  "name": "JullSir(줄서) - 실시간 대기열",
+  "icons": [
+    {
+      "src": "/Jullsir/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
+  "start_url": "/Jullsir/",
+  "background_color": "#ffffff",
+  "theme_color": "#3182f6",
+  "display": "standalone",
+  "orientation": "portrait"
+}
