@@ -121,23 +121,39 @@ JullSir는 클라우드 상시 무료 티어(Always Free Tier)를 활용하여 �
 
 ## 4. Supabase Edge Functions 배포 (알림 발송용)
 
-### 4.1 Supabase CLI 설치 및 로그인
-로컬 터미널(PowerShell 또는 Bash)에서 실행합니다:
+### 4.1 원클릭 Supabase CLI 로그인 및 프로젝트 연결
 
+프로젝트 ID를 수동으로 복사해서 명령어를 칠 필요 없이, `.env` 또는 `.env.local` 파일에 적힌 `VITE_SUPABASE_URL`을 자동으로 읽어 연결해 주는 스크립트를 제공합니다.
+
+**Windows (PowerShell)**:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/supabase-login.ps1
+```
+*(또는 `powershell -ExecutionPolicy Bypass -File scripts/menu.ps1` 실행 후 `[6]`번 선택)*
+
+**Mac / Linux / Git Bash**:
 ```bash
-# Supabase CLI 로그인 (브라우저 인증창 오픈)
-npx supabase login
-
-# 내 프로젝트와 로컬 연결
-npx supabase link --project-ref <your-project-id>
+./scripts/supabase-login.sh
 ```
 
+스크립트가 브라우저 로그인 창을 띄우고, `.env`의 Project ID를 자동 추출하여 `npx supabase link`까지 한 번에 완료합니다.
+
+---
+
 ### 4.2 Resend API Key 시크릿 등록
-Edge Function에서 이메일을 발송할 수 있도록 환경변수를 등록합니다:
+Edge Function에서 이메일을 발송할 수 있도록 Supabase 클라우드에 환경변수를 등록합니다:
 
 ```bash
 npx supabase secrets set RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx
 ```
+
+> [!IMPORTANT]
+> **💡 Q. 다른 PC로 개발 환경을 옮기면 Supabase 설정이 초기화되거나 변경되나요?**  
+> **아닙니다! 절대 변경되지 않고 클라우드에 영구 유지됩니다.**  
+> `schema.sql`로 생성한 테이블, `issue_ticket_atomic` RPC 함수, `secrets set`으로 등록한 API Key, 그리고 배포된 Edge Function은 모두 로컬 컴퓨터가 아니라 **Supabase 클라우드 서버**에 안전하게 보관됩니다.  
+> 따라서 다른 PC에서 git clone을 받더라도 `.env.local` 파일만 복사해 두면 기존 데이터베이스와 실시간 백엔드에 즉시 그대로 연결됩니다. Edge Function을 추가로 수정/재배포할 때만 새 PC에서 `scripts/supabase-login.ps1`을 한 번 실행해 CLI 인증을 해주시면 됩니다.
+
+---
 
 ### 4.3 함수 배포
 ```bash
@@ -188,9 +204,39 @@ JullSir 저장소의 `master` 브랜치에 코드를 푸시하면 GitHub Actions
 
 ## 7. 운영 및 유지보수 가이드 (Zero-Cost 팁)
 
-### 7.1 Supabase 슬립 방지 (Inactivity Pause)
-Supabase Free Tier 프로젝트는 **7일간 API 호출이 없을 경우** 자동 일시 정지(Pause) 상태가 됩니다.
-* **해결책**: 매장 운영 중에는 정기적으로 사용되므로 유지되지만, 장기 미사용 시 슬립을 방지하려면 GitHub Actions 스케줄러(Cron)로 주 1회 헬스체크 쿼리를 보내거나, 대시보드에서 `Restore`를 원클릭으로 진행할 수 있습니다.
+### 7.1 Supabase 7일 슬립 방지 및 다중 프로젝트 통합 이메일 리포팅
+
+Supabase Free Tier 프로젝트는 **7일간 활성 API 호출이 없을 경우** 데이터베이스가 자동 일시 정지(Pause) 상태가 됩니다.
+
+이를 완벽하게 방지하기 위해 **GitHub Actions 주간 헬스체크 스케줄러**([`.github/workflows/supabase-keepalive.yml`](file:///c:/Github/JullSir/.github/workflows/supabase-keepalive.yml))와 **통합 이메일 리포터**([`scripts/healthcheck.mjs`](file:///c:/Github/JullSir/scripts/healthcheck.mjs))가 기본 탑재되어 있습니다.
+
+#### 1) 기본 동작 방식
+* **스케줄**: **매주 월요일 오전 09:00 KST (00:00 UTC)**에 GitHub Actions가 자동으로 실행됩니다.
+* **동작**: 등록된 모든 Supabase 프로젝트에 실제 쿼리를 전송하여 DB 활동을 트리거(7일 비활성 카운트다운 리셋)하고, 응답 속도와 상태를 측정합니다.
+* **수동 즉시 실행**: GitHub 저장소의 **Actions** 탭 $\rightarrow$ `Supabase Weekly Keep-Alive & Healthcheck` 선택 $\rightarrow$ **[Run workflow]**를 눌러 언제든 즉시 테스트할 수 있습니다.
+
+#### 2) 이메일 결과 리포팅 받기 (선택 사항)
+매주 측정된 모든 프로젝트의 헬스체크 결과를 하나의 깔끔한 HTML 리포트 이메일로 받아보실 수 있습니다.
+* GitHub 저장소 **Settings** $\rightarrow$ **Secrets and variables** $\rightarrow$ **Actions**에 아래 시크릿을 등록합니다:
+  * `REPORT_EMAIL`: 리포트를 수신할 이메일 주소 (예: `your-email@gmail.com`)
+  * `RESEND_API_KEY`: 3단계에서 발급받은 Resend API Key (`re_...`)
+*(이메일 시크릿이 미설정된 경우에도 GitHub Actions 실행 화면의 요약(Summary) 대시보드에 표 형태로 결과가 기록됩니다.)*
+
+#### 3) 앞으로 개발할 여러 프로젝트를 하나의 리포트에 추가하는 방법
+향후 동일한 구조의 Supabase 프로젝트를 추가로 개발하실 경우, 다음 두 가지 방법 중 하나로 손쉽게 등록하여 **매주 동일한 시점에 일괄 점검하고 단 1통의 통합 이메일로 리포팅**받으실 수 있습니다:
+
+* **방법 A (GitHub Secret 활용 - 추천)**:
+  * GitHub Secrets에 `ADDITIONAL_PROJECTS_JSON` 항목을 만들고 다음과 같이 JSON 배열로 등록합니다:
+    ```json
+    [
+      { "name": "프로젝트 B", "url": "https://xxxx.supabase.co", "anonKey": "eyJhbGciOi..." },
+      { "name": "프로젝트 C", "url": "https://yyyy.supabase.co", "anonKey": "eyJhbGciOi..." }
+    ]
+    ```
+* **방법 B (설정 파일 활용)**:
+  * 프로젝트 내 [`config/healthcheck-projects.json`](file:///c:/Github/JullSir/config/healthcheck-projects.json) 파일에 추가 프로젝트 정보를 등록하고 커밋합니다.
+
+---
 
 ### 7.2 데이터 수명 주기 및 개인정보 보호 (자동 반영됨)
 * **6시간 세션 자동 만료**: 관리자 페이지 미접속 6시간 경과 시 대기열과 저장된 고객 정보가 영구 삭제됩니다.

@@ -1,0 +1,31 @@
+name: Supabase Weekly Keep-Alive & Healthcheck
+
+on:
+  schedule:
+    # 매주 월요일 오전 09:00 KST (00:00 UTC) 실행
+    - cron: '0 0 * * 1'
+  workflow_dispatch: # Actions 탭에서 수동 즉시 실행 가능
+
+permissions:
+  contents: read
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Multi-Project Supabase Healthcheck & Email Report
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REPORT_EMAIL: ${{ secrets.REPORT_EMAIL }}
+          ADDITIONAL_PROJECTS_JSON: ${{ secrets.ADDITIONAL_PROJECTS_JSON }}
+        run: node scripts/healthcheck.mjs
