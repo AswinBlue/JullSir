@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "audit:copy": "node .agents/skills/user-facing-copy-audit/scripts/audit_ui_copy.mjs"
+    "audit:copy": "node .agent/skills/user-facing-copy-audit/scripts/audit_ui_copy.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
