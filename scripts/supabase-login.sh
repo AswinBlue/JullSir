@@ -42,10 +42,22 @@ fi
 
 echo "[INFO] Target Project ID: $PROJECT_ID"
 
+# Prefer pnpm dlx to avoid Node 24 minipass/npm bug
+SUPABASE_CMD="pnpm dlx supabase"
+if ! command -v pnpm &> /dev/null; then
+    if command -v corepack &> /dev/null; then
+        SUPABASE_CMD="corepack pnpm@9 dlx supabase"
+    else
+        SUPABASE_CMD="npx supabase"
+    fi
+fi
+
 echo "[1/2] Logging in to Supabase CLI..."
-npx supabase login
+$SUPABASE_CMD login
 
 echo "[2/2] Linking project: $PROJECT_ID..."
-npx supabase link --project-ref "$PROJECT_ID"
+$SUPABASE_CMD link --project-ref "$PROJECT_ID"
 
+echo ""
 echo "[SUCCESS] Supabase project successfully linked!"
+echo "[TIP] To deploy edge function, run: ./scripts/supabase-deploy.sh"

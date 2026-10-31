@@ -44,16 +44,26 @@ if (-not $projectId) {
 
 Write-Host "[INFO] Target Project ID: $projectId" -ForegroundColor Cyan
 
+# Helper to execute Supabase CLI avoiding Node 24 npm bug
+function Invoke-SupabaseCli {
+    param([string[]]$CliArgs)
+    if (Get-Command pnpm -ErrorAction SilentlyContinue) {
+        pnpm dlx supabase @CliArgs
+    } else {
+        corepack pnpm@9 dlx supabase @CliArgs
+    }
+}
+
 # 2. Supabase CLI Login
 Write-Host ""
 Write-Host "[1/2] Logging in to Supabase CLI (browser will open for authentication)..." -ForegroundColor Yellow
-npx supabase login
+Invoke-SupabaseCli @("login")
 
 # 3. Link Project
 Write-Host ""
 Write-Host "[2/2] Linking project: $projectId..." -ForegroundColor Yellow
-npx supabase link --project-ref $projectId
+Invoke-SupabaseCli @("link", "--project-ref", $projectId)
 
 Write-Host ""
 Write-Host "[SUCCESS] Supabase project successfully linked!" -ForegroundColor Green
-Write-Host "[TIP] You can now deploy edge functions: npx supabase functions deploy notify-ticket --no-verify-jwt" -ForegroundColor Cyan
+Write-Host "[TIP] You can now deploy edge functions: powershell -ExecutionPolicy Bypass -File scripts/supabase-deploy.ps1" -ForegroundColor Cyan

@@ -31,3 +31,7 @@ dist-ssr
 # Agent Link
 .agent
 
+# Supabase CLI temp
+supabase/.temp/
+
+

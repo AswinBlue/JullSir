@@ -155,10 +155,27 @@ npx supabase secrets set RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx
 
 ---
 
-### 4.3 함수 배포
-```bash
-npx supabase functions deploy notify-ticket --no-verify-jwt
+### 4.3 함수 배포 (Docker 불필요)
+
+Edge Function을 배포할 때 로컬에 Docker가 설치되어 있지 않거나 Node 24의 `npx` 버그가 있을 경우 에러가 발생할 수 있습니다. 이를 방지하고 클라우드 서버 번들링(`--use-api`) 방식으로 안전하게 배포하는 전용 스크립트를 실행합니다:
+
+**Windows (PowerShell)**:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/supabase-deploy.ps1
 ```
+*(또는 `scripts/menu.ps1` 실행 후 `[7]`번 선택)*
+
+**Mac / Linux / Git Bash**:
+```bash
+./scripts/supabase-deploy.sh
+```
+
+**수동 명령어 (직접 입력 시)**:
+```bash
+corepack pnpm@9 dlx supabase functions deploy notify-ticket --project-ref <your-project-id> --use-api --no-verify-jwt
+```
+> `--use-api` 플래그는 로컬 Docker 데몬 없이 Supabase 클라우드 상에서 직접 번들링하여 배포하므로 Docker 설치가 전혀 필요 없습니다.
+
 배포가 완료되면 Supabase 대시보드의 **Edge Functions** 메뉴에서 `notify-ticket` 함수가 활성화된 것을 확인할 수 있습니다.
 
 ---
@@ -204,37 +221,36 @@ JullSir 저장소의 `master` 브랜치에 코드를 푸시하면 GitHub Actions
 
 ## 7. 운영 및 유지보수 가이드 (Zero-Cost 팁)
 
-### 7.1 Supabase 7일 슬립 방지 및 다중 프로젝트 통합 이메일 리포팅
+### 7.1 Supabase 7일 슬립 방지 및 독립 헬스체크 아키텍처
 
 Supabase Free Tier 프로젝트는 **7일간 활성 API 호출이 없을 경우** 데이터베이스가 자동 일시 정지(Pause) 상태가 됩니다.
 
-이를 완벽하게 방지하기 위해 **GitHub Actions 주간 헬스체크 스케줄러**([`.github/workflows/supabase-keepalive.yml`](file:///c:/Github/JullSir/.github/workflows/supabase-keepalive.yml))와 **통합 이메일 리포터**([`scripts/healthcheck.mjs`](file:///c:/Github/JullSir/scripts/healthcheck.mjs))가 기본 탑재되어 있습니다.
+이를 방지하기 위해 JullSir에는 **GitHub Actions 주간 헬스체크 스케줄러**([`.github/workflows/supabase-keepalive.yml`](file:///c:/Github/JullSir/.github/workflows/supabase-keepalive.yml))와 **러너 스크립트**([`scripts/healthcheck.mjs`](file:///c:/Github/JullSir/scripts/healthcheck.mjs))가 탑재되어 있습니다.
 
-#### 1) 기본 동작 방식
+#### 1) JullSir 단독 Keep-Alive 동작 방식
 * **스케줄**: **매주 월요일 오전 09:00 KST (00:00 UTC)**에 GitHub Actions가 자동으로 실행됩니다.
-* **동작**: 등록된 모든 Supabase 프로젝트에 실제 쿼리를 전송하여 DB 활동을 트리거(7일 비활성 카운트다운 리셋)하고, 응답 속도와 상태를 측정합니다.
+* **동작**: JullSir 자체의 Supabase DB에 쿼리를 전송하여 DB 활동을 트리거(7일 비활성 카운트다운 리셋)하고, 응답 속도와 상태를 측정합니다.
 * **수동 즉시 실행**: GitHub 저장소의 **Actions** 탭 $\rightarrow$ `Supabase Weekly Keep-Alive & Healthcheck` 선택 $\rightarrow$ **[Run workflow]**를 눌러 언제든 즉시 테스트할 수 있습니다.
+* **이메일 리포팅 (선택)**: GitHub Secrets에 `REPORT_EMAIL`과 `RESEND_API_KEY`를 등록하면 점검 결과를 매주 이메일로 받아볼 수 있습니다. (미설정 시에도 GitHub Actions 요약 대시보드에 표로 기록됩니다.)
 
-#### 2) 이메일 결과 리포팅 받기 (선택 사항)
-매주 측정된 모든 프로젝트의 헬스체크 결과를 하나의 깔끔한 HTML 리포트 이메일로 받아보실 수 있습니다.
-* GitHub 저장소 **Settings** $\rightarrow$ **Secrets and variables** $\rightarrow$ **Actions**에 아래 시크릿을 등록합니다:
-  * `REPORT_EMAIL`: 리포트를 수신할 이메일 주소 (예: `your-email@gmail.com`)
-  * `RESEND_API_KEY`: 3단계에서 발급받은 Resend API Key (`re_...`)
-*(이메일 시크릿이 미설정된 경우에도 GitHub Actions 실행 화면의 요약(Summary) 대시보드에 표 형태로 결과가 기록됩니다.)*
+---
 
-#### 3) 앞으로 개발할 여러 프로젝트를 하나의 리포트에 추가하는 방법
-향후 동일한 구조의 Supabase 프로젝트를 추가로 개발하실 경우, 다음 두 가지 방법 중 하나로 손쉽게 등록하여 **매주 동일한 시점에 일괄 점검하고 단 1통의 통합 이메일로 리포팅**받으실 수 있습니다:
+#### 2) 💡 아키텍처 제언: 다중 프로젝트 모니터링은 "전용 헬스체크 레포지토리"로 분리
 
-* **방법 A (GitHub Secret 활용 - 추천)**:
-  * GitHub Secrets에 `ADDITIONAL_PROJECTS_JSON` 항목을 만들고 다음과 같이 JSON 배열로 등록합니다:
-    ```json
-    [
-      { "name": "프로젝트 B", "url": "https://xxxx.supabase.co", "anonKey": "eyJhbGciOi..." },
-      { "name": "프로젝트 C", "url": "https://yyyy.supabase.co", "anonKey": "eyJhbGciOi..." }
-    ]
-    ```
-* **방법 B (설정 파일 활용)**:
-  * 프로젝트 내 [`config/healthcheck-projects.json`](file:///c:/Github/JullSir/config/healthcheck-projects.json) 파일에 추가 프로젝트 정보를 등록하고 커밋합니다.
+> [!NOTE]
+> **프로젝트 간 의존성 완전 분리 (Decoupled Architecture)**  
+> JullSir는 '고객 대기열 관리' 서비스입니다. 만약 JullSir가 다른 프로젝트 B, C, D의 모니터링까지 담당하게 되면, **프로젝트 간 불필요한 결합(Coupling)**이 생기고 JullSir 레포지토리의 변경이나 삭제 시 다른 프로젝트의 헬스체크까지 영향을 받게 됩니다.
+
+따라서 여러 프로젝트를 운영하실 때 가장 이상적이고 깔끔한 구조는 다음과 같습니다:
+
+1. **JullSir 저장소**:
+   * 오직 **JullSir 자신의 Supabase DB만** 헬스체크하여 슬립을 방지하고 자기 자신에게만 집중합니다.
+2. **독립 중앙 헬스체크 저장소 (예: `central-keepalive`) 신설**:
+   * 모니터링 전용 레포지토리를 별도로 생성합니다.
+   * 전역 에이전트 스킬인 **`release-keepalive-healthcheck`**를 호출하여 해당 레포지토리에 스케줄러와 러너를 단 1분 만에 세팅합니다.
+   * 해당 중앙 저장소에서 모든 프로젝트(JullSir, 프로젝트 B, 프로젝트 C 등)의 URL을 등록하고, 매주 월요일 일괄 쿼리를 전송하여 **단 1통의 통합 이메일 리포트**를 수신합니다.
+
+이렇게 분리하면 각 프로젝트는 서로의 존재를 알 필요 없이 완벽하게 독립되며, 중앙 모니터링 레포지토리 한 곳에서 모든 백엔드의 건강 상태를 안전하게 통합 관리할 수 있습니다.
 
 ---
 
