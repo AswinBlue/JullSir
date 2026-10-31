@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAdminQueue } from '../hooks/useQueue';
-import { queueRepository } from '../services/storage/mockQueueRepository';
+import { queueRepository } from '../services/storage';
 import { generateQrDataUrl, downloadQrImage } from '../utils/qr';
 import { maskEmail } from '../utils/mask';
 import { MobileContainer } from '../components/common/MobileContainer';

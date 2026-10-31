@@ -1,8 +1,14 @@
 import { soundManager } from '../../utils/sound';
+import { supabase, isSupabaseConfigured } from '../supabase/client';
 
 export interface NotificationResult {
   supported: boolean;
   permission: NotificationPermission;
+}
+
+export interface NotifyExtraOptions {
+  queueId?: string;
+  email?: string;
 }
 
 class NotificationService {
@@ -41,8 +47,8 @@ class NotificationService {
     }
   }
 
-  // Trigger high-priority call feedback (Sound + Vibration + Browser Notification)
-  public notifyTicketCalled(ticketNumber: number, queueName: string): void {
+  // Trigger high-priority call feedback (Sound + Vibration + Browser Notification + Cloud Edge Function)
+  public notifyTicketCalled(ticketNumber: number, queueName: string, extra?: NotifyExtraOptions): void {
     // 1. Play Chime Sound
     soundManager.playChime();
 
@@ -67,6 +73,20 @@ class NotificationService {
       } catch {
         // ignore
       }
+    }
+
+    // 4. Cloud Edge Function (Web Push / Resend Email Notification via Supabase)
+    if (isSupabaseConfigured() && supabase && extra?.email) {
+      supabase.functions.invoke('notify-ticket', {
+        body: {
+          queueId: extra.queueId || '',
+          queueName,
+          ticketNumber,
+          email: extra.email,
+        },
+      }).catch((err) => {
+        console.warn('Supabase Edge Function notify-ticket error:', err);
+      });
     }
   }
 }

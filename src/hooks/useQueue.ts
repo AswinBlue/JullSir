@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { QueueSummary, QueueEvent } from '../types';
-import { queueRepository } from '../services/storage/mockQueueRepository';
+import { queueRepository } from '../services/storage';
 
 export function useQueue(queueId?: string) {
   const [summary, setSummary] = useState<QueueSummary | null>(null);

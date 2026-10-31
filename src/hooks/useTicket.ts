@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Ticket, Queue, QueueEvent } from '../types';
-import { queueRepository } from '../services/storage/mockQueueRepository';
+import { queueRepository } from '../services/storage';
 import { notificationService } from '../services/notification/notificationService';
 
 export function useTicket(ticketId?: string) {

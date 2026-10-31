@@ -4,7 +4,7 @@ import { MobileContainer } from '../components/common/MobileContainer';
 import { Header } from '../components/common/Header';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
-import { queueRepository } from '../services/storage/mockQueueRepository';
+import { queueRepository } from '../services/storage';
 import { Queue } from '../types';
 import { 
   Store, 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueue } from '../hooks/useQueue';
-import { queueRepository } from '../services/storage/mockQueueRepository';
+import { queueRepository } from '../services/storage';
 import { MobileContainer } from '../components/common/MobileContainer';
 import { EmailInput, isValidEmail } from '../components/common/EmailInput';
 import { Header } from '../components/common/Header';
