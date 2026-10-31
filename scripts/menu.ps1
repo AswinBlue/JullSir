@@ -13,6 +13,7 @@ while ($true) {
     Write-Host " [5] Preview Build (dist)  (scripts/preview.ps1)"
     Write-Host " [6] Supabase Login & Link (scripts/supabase-login.ps1)"
     Write-Host " [7] Deploy Edge Function  (scripts/supabase-deploy.ps1)"
+    Write-Host " [8] Set Supabase Secret   (scripts/supabase-secrets.ps1)"
     Write-Host " [Q] Quit"
     Write-Host "--------------------------------------------------" -ForegroundColor DarkGray
 
@@ -26,6 +27,7 @@ while ($true) {
         "5" { & "$PSScript/preview.ps1"; break }
         "6" { & "$PSScript/supabase-login.ps1"; Read-Host "Press Enter to return to menu" }
         "7" { & "$PSScript/supabase-deploy.ps1"; Read-Host "Press Enter to return to menu" }
+        "8" { & "$PSScript/supabase-secrets.ps1"; Read-Host "Press Enter to return to menu" }
         "Q" { exit 0 }
         "q" { exit 0 }
         default { Write-Host "Invalid option. Please try again." -ForegroundColor Yellow; Start-Sleep -Seconds 1 }

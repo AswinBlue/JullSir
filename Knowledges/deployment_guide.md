@@ -112,10 +112,41 @@ JullSir는 클라우드 상시 무료 티어(Always Free Tier)를 활용하여 �
 ### 3.1 계정 가입 및 API Key 발급
 1. [Resend 공식 홈페이지](https://resend.com)에 접속하여 회원가입합니다 (월 3,000건, 일 100건 무료).
 2. 좌측 메뉴 **API Keys**로 이동하여 **[Create API Key]**를 클릭합니다.
-3. 권한 `Full access`로 키를 생성하고, 발급된 키(`re_xxxxxxxxxxxxxxxxx`)를 복사해 둡니다.
+3. **권한(Permission) 설정**: **`Sending access`**를 선택하고 키를 생성합니다.
+   * **Full access가 필요한가요?**: 아닙니다! `Sending access` 권한만 있으면 대기열 알림 이메일 발송(`POST /emails`)이 100% 완벽하게 동작합니다.
+   * **보안상 권장 이유 (최소 권한 원칙)**: `Full access`는 도메인 삭제, 결제 설정 변경 등 계정 전체를 제어하는 슈퍼 관리자 권한이므로, 외부 연동 키에는 발송 권한만 부여된 `Sending access`를 사용하는 것이 안전합니다.
+4. 발급된 키(`re_xxxxxxxxxxxxxxxxx`)를 복사해 둡니다.
 
-> [!NOTE]
-> 커스텀 도메인이 없는 경우, Resend가 기본 제공하는 테스트 발신자(`onboarding@resend.dev`)를 통해 본인 계정 이메일로 테스트 발송이 가능합니다. 실제 운영 시에는 **Domains** 메뉴에서 보유한 도메인의 DNS TXT/MX 레코드를 등록하여 원하는 발신자 주소(예: `no-reply@yourdomain.com`)를 사용할 수 있습니다.
+---
+
+### 3.2 커스텀 도메인(Custom Domain) 완벽 가이드
+
+#### 💡 커스텀 도메인이 홈페이지를 뜻하는 것인가요?
+**아닙니다.** 도메인(Domain)은 `naver.com`, `jullsir.com`과 같은 **인터넷상의 고유 식별 주소**입니다.  
+도메인은 웹사이트 접속 주소(`https://jullsir.com`)로도 사용되지만, 이메일 주소의 골뱅이 뒤 식별자(`notify@jullsir.com`)로도 사용됩니다. 별도의 홈페이지나 웹사이트를 만들지 않더라도, 도메인 소유권만 있으면 이메일 발신 전용으로 등록하여 사용할 수 있습니다.
+
+#### 💡 이메일 발송에 커스텀 도메인이 필요한 이유
+1. **수신자 제한 해제 (무료 테스트 발신자의 한계)**:  
+   Resend가 기본 제공하는 테스트 발신자(`onboarding@resend.dev`)는 스팸/피싱 악용을 막기 위해 **Resend 계정에 가입한 본인 이메일 주소로만** 발송할 수 있는 샌드박스 상태입니다. 매장을 방문한 실제 고객(손님)에게 입장 안내 메일을 발송하려면 커스텀 도메인 등록이 필수입니다.
+2. **스팸 차단 및 반송 방지 (SPF / DKIM / DMARC)**:  
+   Google(Gmail), Naver, Daum 등 주요 메일 서비스는 발신 도메인의 DNS 암호화 서명(DKIM) 및 발신 서버 인증(SPF)이 없는 이메일을 스팸함으로 격리하거나 수신 거부(Reject)합니다. 내 도메인의 DNS를 연결해야 고객의 받은편지함(Inbox)에 100% 안전하게 도달합니다.
+3. **브랜드 신뢰도 확보**:  
+   발신자가 모르는 `resend.dev` 대신 매장/서비스 브랜드 주소(예: `no-reply@jullsir.com`)로 전송되어 고객이 피싱으로 오인하지 않습니다.
+
+#### 💡 커스텀 도메인 설정 권장 방식 (Best Practice: 서브도메인 분리)
+* **메인 도메인 대신 전용 서브도메인 등록을 강력 권장**:  
+  메인 도메인(`yourdomain.com`)을 직접 등록하기보다는 **`mail.yourdomain.com`** 또는 **`notify.yourdomain.com`** 같은 알림 전용 서브도메인을 Resend에 등록하는 것이 전 세계 이메일 인프라의 표준입니다.
+  * **장점**: 기존에 사용 중인 회사 업무용 메일(Google Workspace, 네이버 웍스 등)과의 MX 레코드 충돌을 원천 방지하고, 대기열 알림 발송용 메일 평판(Reputation)을 독립적으로 깨끗하게 유지할 수 있습니다.
+* **도메인 준비**: Cloudflare Registrar(마진 없는 원가 판매, 연 1~1.5만원 수준 추천), Namecheap, 가비아 등에서 원하는 도메인을 구매합니다.
+* **Resend 등록 절차**:
+  1. Resend 대시보드 $\rightarrow$ **Domains** $\rightarrow$ **[Add Domain]** 클릭.
+  2. 도메인명에 `notify.yourdomain.com` 입력 (Region: Tokyo 등 가까운 리전 선택).
+  3. Resend가 발급해 주는 **3가지 DNS 레코드(SPF, DKIM 2~3개, MX)**를 도메인 네임서버(DNS 관리 페이지)에 추가.
+  4. Resend에서 **[Verify Domain]** 클릭하여 상태가 `Verified`로 변경되면 즉시 고객 발송 가능.
+
+#### 💡 제약조건 및 무료 플랜 정책
+* **무료 플랜 쿼터**: Resend 무료 플랜은 **일 100건, 월 3,000건**까지 전액 무료입니다. (초과 시 유료 플랜 전환 또는 건당 과금).
+* **DNS 전파 시간**: DNS 레코드 등록 후 전 세계에 반영되기까지 보통 5분~수 시간이 소요될 수 있습니다.
 
 ---
 
@@ -136,16 +167,35 @@ powershell -ExecutionPolicy Bypass -File scripts/supabase-login.ps1
 ./scripts/supabase-login.sh
 ```
 
-스크립트가 브라우저 로그인 창을 띄우고, `.env`의 Project ID를 자동 추출하여 `npx supabase link`까지 한 번에 완료합니다.
+스크립트가 브라우저 로그인 창을 띄우고, `.env`의 Project ID를 자동 추출하여 Supabase 프로젝트 연결까지 한 번에 완료합니다.
 
 ---
 
 ### 4.2 Resend API Key 시크릿 등록
-Edge Function에서 이메일을 발송할 수 있도록 Supabase 클라우드에 환경변수를 등록합니다:
 
+Edge Function에서 이메일을 발송할 수 있도록 Supabase 클라우드에 환경변수를 등록합니다.
+
+> [!WARNING]
+> **Node 24 환경에서 `npx supabase secrets set` 실행 시 발생하는 버그 안내**  
+> Node v24 + npm v11 환경에서는 npm 내부 종속성(`minipass-collect`)의 버그로 인해 `Class extends value undefined is not a constructor or null` 에러가 발생합니다.  
+> 따라서 `npx`를 사용하지 마시고, 아래의 **전용 스크립트**나 **`corepack pnpm`** 명령어를 사용해야 합니다.
+
+**방법 A: 원클릭 스크립트 실행 (추천)**:
+* **Windows (PowerShell)**:
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File scripts/supabase-secrets.ps1
+  ```
+  *(또는 `scripts/menu.ps1` 실행 후 `[8]`번 선택)*
+* **Mac / Linux / Git Bash**:
+  ```bash
+  ./scripts/supabase-secrets.sh
+  ```
+
+**방법 B: 수동 명령어 직접 입력 (Node 24 버그 회피)**:
 ```bash
-npx supabase secrets set RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx
+corepack pnpm@9 dlx supabase secrets set RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx
 ```
+*(이미 `pnpm`이 전역 설치된 환경에서는 `pnpm dlx supabase secrets set RESEND_API_KEY=...`로 바로 실행 가능합니다.)*
 
 > [!IMPORTANT]
 > **💡 Q. 다른 PC로 개발 환경을 옮기면 Supabase 설정이 초기화되거나 변경되나요?**  

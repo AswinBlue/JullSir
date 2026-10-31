@@ -28,18 +28,26 @@
 
 ## 4. Edge Functions 배포 (알림 발송용)
 
+> [!TIP]
+> Node 24 환경의 `npx` 결함 방지 및 Docker 없는 안전한 클라우드 배포를 위해 `corepack pnpm@9 dlx supabase` 또는 `scripts/menu.ps1`을 사용합니다.
+
 ```bash
-# 1. Supabase CLI 로그인
-npx supabase login
+# 1. Supabase CLI 로그인 (브라우저 인증창 오픈)
+corepack pnpm@9 dlx supabase login
 
 # 2. 프로젝트 연결
-npx supabase link --project-ref <your-project-id>
+corepack pnpm@9 dlx supabase link --project-ref <your-project-id>
 
 # 3. 환경변수 설정 (Resend API 키 등)
-npx supabase secrets set RESEND_API_KEY=re_xxxxxxxx
+corepack pnpm@9 dlx supabase secrets set RESEND_API_KEY=re_xxxxxxxx
 
-# 4. 함수 배포
-npx supabase functions deploy notify-ticket
+# 4. 함수 배포 (Docker 불필요, 클라우드 API 빌드)
+corepack pnpm@9 dlx supabase functions deploy notify-ticket --use-api --no-verify-jwt
+```
+
+또는 Windows에서는 원클릭 대화형 메뉴를 실행하여 간편하게 진행할 수 있습니다:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/menu.ps1
 ```
 
 ---
