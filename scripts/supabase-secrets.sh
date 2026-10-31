@@ -48,6 +48,10 @@ if [ -z "$SECRET_ARG" ]; then
     exit 1
 fi
 
+if [[ "$SECRET_ARG" =~ ^re_[a-zA-Z0-9_-]+$ ]]; then
+    SECRET_ARG="RESEND_API_KEY=$SECRET_ARG"
+fi
+
 echo "[INFO] Setting secret on project $PROJECT_ID..."
 
 SUPABASE_CMD="pnpm dlx supabase"

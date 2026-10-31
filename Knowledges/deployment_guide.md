@@ -138,15 +138,44 @@ JullSir는 클라우드 상시 무료 티어(Always Free Tier)를 활용하여 �
   메인 도메인(`yourdomain.com`)을 직접 등록하기보다는 **`mail.yourdomain.com`** 또는 **`notify.yourdomain.com`** 같은 알림 전용 서브도메인을 Resend에 등록하는 것이 전 세계 이메일 인프라의 표준입니다.
   * **장점**: 기존에 사용 중인 회사 업무용 메일(Google Workspace, 네이버 웍스 등)과의 MX 레코드 충돌을 원천 방지하고, 대기열 알림 발송용 메일 평판(Reputation)을 독립적으로 깨끗하게 유지할 수 있습니다.
 * **도메인 준비**: Cloudflare Registrar(마진 없는 원가 판매, 연 1~1.5만원 수준 추천), Namecheap, 가비아 등에서 원하는 도메인을 구매합니다.
-* **Resend 등록 절차**:
-  1. Resend 대시보드 $\rightarrow$ **Domains** $\rightarrow$ **[Add Domain]** 클릭.
-  2. 도메인명에 `notify.yourdomain.com` 입력 (Region: Tokyo 등 가까운 리전 선택).
-  3. Resend가 발급해 주는 **3가지 DNS 레코드(SPF, DKIM 2~3개, MX)**를 도메인 네임서버(DNS 관리 페이지)에 추가.
-  4. Resend에서 **[Verify Domain]** 클릭하여 상태가 `Verified`로 변경되면 즉시 고객 발송 가능.
+
+---
+
+### 3.3 도메인 네임서버(DNS 관리 시스템) 안내 및 등록 가이드
+
+#### 💡 "도메인 네임서버(DNS 관리 페이지)"는 어디에 있나요?
+도메인이 사람을 위한 고유 이름이라면, **DNS(Domain Name System)**는 이 도메인이 어느 서버(IP)를 가리키는지, 어떤 메일 서버(MX)와 암호 서명(TXT)을 가졌는지를 적어두는 **"인터넷의 전화번호부"**입니다.  
+별도의 새로운 DNS 서비스에 별도로 가입할 필요 없이, **"도메인을 구매한 등록 대행업체(Registrar)의 관리 콘솔"**에 로그인하면 무료로 제공됩니다.
+
+#### 📌 주요 도메인 구매처별 DNS 관리 페이지 진입 방법
+* **Cloudflare (가장 강력 추천: 마진 0원 원가 판매, 10초 내 초고속 DNS 반영)**:
+  * 대시보드 로그인 $\rightarrow$ 구매한 도메인 클릭 $\rightarrow$ 좌측 메뉴 **[DNS]** $\rightarrow$ **[레코드]** $\rightarrow$ `[레코드 추가]` 클릭.
+* **가비아 (Gabia)**:
+  * 로그인 $\rightarrow$ 상단 **My가비아** $\rightarrow$ 서비스 관리의 **[도메인]** $\rightarrow$ 대상 도메인의 **[관리]** $\rightarrow$ **[DNS 관리 툴]** $\rightarrow$ `설정` 클릭.
+* **후이즈 (Whois)**:
+  * 로그인 $\rightarrow$ **도메인 관리** $\rightarrow$ **[네임서버/DNS 설정]** $\rightarrow$ `고급 DNS 관리` 클릭.
+* **Namecheap**:
+  * 로그인 $\rightarrow$ **Domain List** $\rightarrow$ 대상 도메인 우측 **[Manage]** $\rightarrow$ 상단 **[Advanced DNS]** 탭 $\rightarrow$ `[Add New Record]` 클릭.
+
+#### 📌 Resend 대시보드와 DNS 설정 필드 1:1 매핑
+Resend 대시보드의 **Domains** $\rightarrow$ **[Add Domain]**에 서브도메인(예: `notify.yourdomain.com`)을 입력하면 표 형태로 3가지 레코드가 발급됩니다. 이 항목들을 위 DNS 관리 페이지에서 각각 **[레코드 추가]**를 눌러 그대로 입력합니다:
+
+| Resend 화면 표시명 | 도메인 DNS 관리 화면 입력 필드 | 입력값 예시 | 설명 |
+|---|---|---|---|
+| **Type** | 레코드 유형 | `TXT` 또는 `MX` | 레코드 종류 선택 |
+| **Name** | 이름 / 호스트 / 호스트 이름 | `resend._domainkey` 또는 `bounces` | Resend가 지정한 서브도메인 이름 |
+| **Value** | 값 / 콘텐츠 / 대상 서버 | `p=MIGfMA0GCS...` 또는 `feedback-smtp.resend.com` | Resend가 발급한 고유 암호 서명키/서버 |
+| **Priority** | 우선순위 | `10` | MX 레코드에만 적용 (TXT는 빈칸) |
+| **TTL** | TTL (생존 시간) | `Auto` 또는 기본값(`3600`) | 기본값 유지 |
+
+> [!TIP]
+> **💡 지금 당장 도메인이 없거나 구매 전이라면?**  
+> **개발 및 프로토타입 단계에서는 도메인 구매 및 DNS 등록을 건너뛰어도 전혀 문제없습니다!**  
+> Resend가 기본 제공하는 테스트 발신자(`onboarding@resend.dev`)를 사용하면, Resend에 가입하신 본인 이메일 계정으로 알림 메일이 정상 발송되는지 즉시 무료로 테스트할 수 있습니다. 실제 상용 매장 오픈 시점에 도메인을 연결하시면 됩니다.
 
 #### 💡 제약조건 및 무료 플랜 정책
 * **무료 플랜 쿼터**: Resend 무료 플랜은 **일 100건, 월 3,000건**까지 전액 무료입니다. (초과 시 유료 플랜 전환 또는 건당 과금).
-* **DNS 전파 시간**: DNS 레코드 등록 후 전 세계에 반영되기까지 보통 5분~수 시간이 소요될 수 있습니다.
+* **DNS 전파 시간**: DNS 레코드 등록 후 전 세계에 반영되기까지 보통 5분~수 시간이 소요될 수 있습니다. (Cloudflare의 경우 통상 1~2분 이내 즉시 반영).
 
 ---
 
