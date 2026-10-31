@@ -42,11 +42,35 @@ JullSir는 클라우드 상시 무료 티어(Always Free Tier)를 활용하여 �
    * **Pricing Plan**: `Free` ($0/month)
 4. **[Create new project]**를 누르고 약 1~2분간 프로비저닝이 완료될 때까지 대기합니다.
 
-### 2.2 API 키 및 URL 확인
+### 2.2 API 키 및 URL 확인 및 설정 위치
 1. 프로젝트 좌측 메뉴에서 **Project Settings** (⚙️ 아이콘) $\rightarrow$ **API**로 이동합니다.
-2. 아래 두 값을 복사하여 메모해 둡니다:
+2. 아래 두 값을 복사합니다:
    * **Project URL**: `https://<your-project-id>.supabase.co`
    * **Project API keys**의 `anon` `public` 키: `eyJhbGciOiJIUzI1NiIsInR5cCI...`
+
+#### 💡 복사한 두 값은 어디에 설정하나요?
+
+* **1) 내 컴퓨터(로컬)에서 테스트/개발할 때**:
+  * 프로젝트 루트 폴더(`c:\Github\JullSir\`)에 `.env.local` 파일을 생성하고 아래와 같이 붙여넣습니다:
+    ```env
+    VITE_SUPABASE_URL=https://<your-project-id>.supabase.co
+    VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI...
+    ```
+  * `.env.example` 파일을 복사하여 `.env.local`로 이름을 바꾼 뒤 값만 교체하셔도 됩니다.
+
+* **2) 실제 배포 사이트(GitHub Pages: aswinblue.github.io/Jullsir)에 적용할 때**:
+  * GitHub 웹사이트의 저장소 설정(Secrets)에 등록해야 빌드 시 자동으로 반영됩니다.
+  1. GitHub 저장소 ([https://github.com/AswinBlue/JullSir](https://github.com/AswinBlue/JullSir)) 접속
+  2. 상단 탭 맨 우측 **Settings** 클릭
+  3. 좌측 사이드바에서 **Secrets and variables** 클릭 $\rightarrow$ 하위의 **Actions** 클릭
+  4. 초록색 **[New repository secret]** 버튼 클릭:
+     * **Name**: `VITE_SUPABASE_URL`
+     * **Secret**: 복사한 Project URL 붙여넣기 $\rightarrow$ **[Add secret]**
+  5. 다시 **[New repository secret]** 버튼 클릭:
+     * **Name**: `VITE_SUPABASE_ANON_KEY`
+     * **Secret**: 복사한 anon public 키 붙여넣기 $\rightarrow$ **[Add secret]**
+
+---
 
 ### 2.3 데이터베이스 스키마 및 원자적 RPC 배포
 1. Supabase 좌측 메뉴에서 **SQL Editor**로 이동합니다.
@@ -59,11 +83,27 @@ JullSir는 클라우드 상시 무료 티어(Always Free Tier)를 활용하여 �
    * `issue_ticket_atomic` 함수 (동시 경합 방지 및 중복 이메일 복원 원자적 RPC)
    * `touch_queue_session` 함수 (세션 연장)
    * `purge_expired_queues` 함수 (만료 데이터 정리)
-   * `supabase_realtime` 복제 활성화
+   * `supabase_realtime` 복제 자동 등록 완료 (SQL 내부에서 자동 처리)
 
-### 2.4 Realtime 활성화 확인
-1. 좌측 메뉴 **Database** $\rightarrow$ **Replication**으로 이동합니다.
-2. `supabase_realtime` 항목에서 `queues`와 `tickets` 테이블이 활성화(ON) 상태인지 확인합니다. (미등록 시 토글을 켜서 등록)
+---
+
+### 2.4 Realtime 활성화 확인 (선택 사항)
+
+> [!TIP]
+> **이미 완료되었습니다!**  
+> 위의 2.3단계에서 `supabase/schema.sql`을 실행하셨다면, 스크립트 내부의 `ALTER PUBLICATION supabase_realtime ADD TABLE ...` 명령어를 통해 **Realtime이 데이터베이스 레벨에서 이미 자동으로 활성화**되어 있습니다. 별도의 UI 설정을 찾지 않으셔도 정상 동작합니다.
+
+만약 활성화 여부를 직접 확인하고 싶으시다면 다음 방법 중 편한 방법을 사용하세요:
+
+* **방법 1 (가장 쉬움 - SQL Editor에서 확인)**:
+  SQL Editor에서 아래 쿼리를 실행하여 결과에 `queues`와 `tickets`가 나오는지 확인합니다:
+  ```sql
+  SELECT tablename FROM pg_publication_tables WHERE pubname = 'supabase_realtime';
+  ```
+
+* **방법 2 (대시보드 UI에서 확인)**:
+  * 최신 Supabase UI에서는 좌측 **Database** 메뉴 진입 후 상단 탭 또는 서브메뉴의 **Publications** $\rightarrow$ `supabase_realtime` 항목을 클릭하면 포함된 테이블 목록을 확인할 수 있습니다.
+  * 또는 좌측 **Table Editor** $\rightarrow$ `queues` 또는 `tickets` 테이블 선택 $\rightarrow$ 우측 상단 테이블 설정(Edit Table)에서 **Enable Realtime** 체크박스가 켜져 있는지 확인하실 수 있습니다.
 
 ---
 
