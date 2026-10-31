@@ -51,6 +51,7 @@ export const AdminDashboard: React.FC = () => {
 
   // Host Action State
   const [calling, setCalling] = useState(false);
+  const [callingTicketId, setCallingTicketId] = useState<string | null>(null);
   const [recalling, setRecalling] = useState(false);
   const [actionError, setActionError] = useState('');
 
@@ -166,6 +167,22 @@ export const AdminDashboard: React.FC = () => {
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : '영업 종료 처리 실패');
       setPurging(false);
+    }
+  };
+
+  // Call Specific Ticket (Out-of-order)
+  const handleCallSpecificTicket = async (ticketId: string) => {
+    if (!adminToken) return;
+    setCallingTicketId(ticketId);
+    setActionError('');
+    try {
+      await queueRepository.callSpecificTicket(adminToken, ticketId);
+      await refresh();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '호출 중 오류가 발생했습니다.';
+      setActionError(msg);
+    } finally {
+      setCallingTicketId(null);
     }
   };
 
@@ -518,12 +535,26 @@ export const AdminDashboard: React.FC = () => {
                       </button>
                     )}
                     {t.status === 'WAITING' && (
-                      <button
-                        onClick={() => handleSkipTicket(t.id)}
-                        className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-colors"
-                      >
-                        스킵
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          disabled={callingTicketId === t.id}
+                          onClick={() => handleCallSpecificTicket(t.id)}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                          title="해당 번호 즉시 호출"
+                        >
+                          <Megaphone className="w-3.5 h-3.5" />
+                          <span>{callingTicketId === t.id ? '호출 중...' : '호출하기'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSkipTicket(t.id)}
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium border border-slate-200/80 active:scale-95 transition-all"
+                          title="해당 번호 건너뛰기"
+                        >
+                          스킵하기
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

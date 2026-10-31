@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Ticket, Queue, QueueEvent } from '../types';
 import { queueRepository } from '../services/storage';
 import { notificationService } from '../services/notification/notificationService';
+import { isBypassedTicket } from '../services/notificationAlertEngine';
 
 export function useTicket(ticketId?: string) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -123,6 +124,8 @@ export function useTicket(ticketId?: string) {
   const isMyTurn = ticket?.status === 'CALLED' || 
     (ticket?.status === 'WAITING' && queue?.currentServingNumber === ticket.ticketNumber);
 
+  const isBypassed = isBypassedTicket(ticket?.status, ticket?.ticketNumber, queue?.currentServingNumber);
+
   return { 
     ticket, 
     queue, 
@@ -132,6 +135,7 @@ export function useTicket(ticketId?: string) {
     avgWaitTimeMinutes,
     expectedWaitMinutes,
     isMyTurn, 
+    isBypassed,
     loading, 
     error, 
     cancel, 

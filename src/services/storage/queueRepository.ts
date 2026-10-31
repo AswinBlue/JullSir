@@ -11,13 +11,14 @@ export interface IQueueRepository {
   purgeQueue(queueId: string): Promise<void>;
 
   // Ticket operations
-  issueTicket(queueId: string, email: string): Promise<Ticket>;
+  issueTicket(queueId: string, email?: string): Promise<Ticket>;
   getTicket(ticketId: string): Promise<Ticket | null>;
   getQueueSummary(queueId: string): Promise<QueueSummary | null>;
   getQueueSummaryByAdminToken(adminToken: string): Promise<QueueSummary | null>;
 
   // Host ticket actions
   callNextTicket(adminToken: string): Promise<Ticket | null>;
+  callSpecificTicket(adminToken: string, ticketId: string): Promise<Ticket>;
   reCallCurrentTicket(adminToken: string): Promise<Ticket | null>;
   skipTicket(adminToken: string, ticketId: string): Promise<Ticket>;
   completeTicket(adminToken: string, ticketId: string): Promise<Ticket>;

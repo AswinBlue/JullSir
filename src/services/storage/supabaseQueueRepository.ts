@@ -280,17 +280,20 @@ export class SupabaseQueueRepository implements IQueueRepository {
 
   // --- Ticket Operations ---
 
-  public async issueTicket(queueId: string, email: string): Promise<Ticket> {
+  public async issueTicket(queueId: string, email?: string): Promise<Ticket> {
     const trimmedEmail = email?.trim() || '';
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
-      throw new Error('올바른 이메일 주소를 입력해 주세요.');
+    if (trimmedEmail) {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        throw new Error('올바른 이메일 주소를 입력해 주세요.');
+      }
     }
+    const finalEmail = trimmedEmail || `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}@anonymous.local`;
 
     // Call atomic RPC function in PostgreSQL
     const { data, error } = await this.client.rpc('issue_ticket_atomic', {
       p_queue_id: queueId,
-      p_email: trimmedEmail,
+      p_email: finalEmail,
     });
 
     if (error || !data || data.length === 0) {
@@ -428,6 +431,59 @@ export class SupabaseQueueRepository implements IQueueRepository {
     });
 
     return nextTicket;
+  }
+
+  /**
+   * @func callSpecificTicket
+   * @sds {SDS26110105}
+   * @prd {PRD26110105}
+   * @seq {SQ4-01, SQ4-03}
+   * @state {TR-06}
+   * @description 점주가 대기열 목록에서 특정 티켓을 지정하여 비순차적으로 호출한다.
+   * @param {string} adminToken - 점주 관리자 토큰
+   * @param {string} ticketId - 호출할 티켓 식별자
+   * @returns {Promise<Ticket>} 호출된 티켓 정보
+   * @throws {Error} 관리자 권한 없거나 티켓이 존재하지 않는 경우
+   */
+  public async callSpecificTicket(adminToken: string, ticketId: string): Promise<Ticket> {
+    const queue = await this.getQueueByAdminToken(adminToken);
+    if (!queue) throw new Error('관리자 권한이 없습니다.');
+
+    const calledAt = new Date().toISOString();
+
+    const { data: ticketData, error: ticketError } = await this.client
+      .from('tickets')
+      .update({
+        status: 'CALLED',
+        called_at: calledAt,
+      })
+      .eq('id', ticketId)
+      .eq('queue_id', queue.id)
+      .select()
+      .single();
+
+    if (ticketError || !ticketData) {
+      throw new Error('티켓 호출에 실패했습니다.');
+    }
+
+    // 2. Update queue serving number
+    await this.client
+      .from('queues')
+      .update({
+        current_serving_number: ticketData.ticket_number,
+        updated_at: calledAt,
+      })
+      .eq('id', queue.id);
+
+    const calledTicket = mapDbTicket(ticketData as DbTicket);
+
+    // 3. Trigger notification
+    notificationService.notifyTicketCalled(calledTicket.ticketNumber, queue.name, {
+      queueId: queue.id,
+      email: calledTicket.email,
+    });
+
+    return calledTicket;
   }
 
   public async reCallCurrentTicket(adminToken: string): Promise<Ticket | null> {

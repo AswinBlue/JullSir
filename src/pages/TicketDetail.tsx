@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { useTicket } from '../hooks/useTicket';
@@ -10,6 +10,14 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
+import { PwaGuideModal } from '../components/common/PwaGuideModal';
+import { 
+  detectNotificationMode, 
+  requestScreenWakeLock, 
+  BuzzerAlertEngine, 
+  shouldTriggerBuzzer,
+  DeviceNotificationConfig
+} from '../services/notificationAlertEngine';
 import { 
   Sparkles, 
   AlertTriangle, 
@@ -17,7 +25,8 @@ import {
   XCircle, 
   Clock, 
   RefreshCw,
-  BellRing
+  BellRing,
+  Smartphone
 } from 'lucide-react';
 
 export const TicketDetail: React.FC = () => {
@@ -31,6 +40,7 @@ export const TicketDetail: React.FC = () => {
     avgWaitTimeMinutes,
     expectedWaitMinutes,
     isMyTurn, 
+    isBypassed,
     loading, 
     error, 
     cancel, 
@@ -40,6 +50,67 @@ export const TicketDetail: React.FC = () => {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [hasTriggeredConfetti, setHasTriggeredConfetti] = useState(false);
+  const [deviceConfig, setDeviceConfig] = useState<DeviceNotificationConfig | null>(null);
+  const [isBuzzerActive, setIsBuzzerActive] = useState(false);
+  const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
+
+  const buzzerEngineRef = useRef<BuzzerAlertEngine>(new BuzzerAlertEngine());
+  const prevStatusRef = useRef<string | undefined>(undefined);
+
+  // Initialize device detection and WakeLock
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ua = navigator.userAgent;
+    const searchParams = new URLSearchParams(window.location.search);
+    const hasPwaQuery = searchParams.get('guide') === 'pwa';
+    const permission = typeof Notification !== 'undefined' ? Notification.permission : undefined;
+
+    const config = detectNotificationMode(ua, hasPwaQuery, permission);
+    setDeviceConfig(config);
+
+    if (config.autoShowPwaGuide) {
+      setIsPwaModalOpen(true);
+    }
+
+    // Auto request wake lock on mount for iOS or Android fallback
+    requestScreenWakeLock();
+
+    // Re-request on visibility change
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        requestScreenWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      buzzerEngineRef.current.stop();
+    };
+  }, []);
+
+  // Monitor real-time status transitions for buzzer alarm
+  useEffect(() => {
+    if (!ticket) return;
+
+    const prev = prevStatusRef.current;
+    const curr = ticket.status;
+
+    // Check if buzzer should trigger (only in-flight WAITING -> CALLED with active screen)
+    if (shouldTriggerBuzzer(prev, curr, document.visibilityState === 'visible')) {
+      setIsBuzzerActive(true);
+      buzzerEngineRef.current.startBuzzerAlarm(() => {
+        setIsBuzzerActive(false);
+      });
+    }
+
+    prevStatusRef.current = curr;
+  }, [ticket?.status]);
+
+  const handleDismissBuzzer = () => {
+    buzzerEngineRef.current.stop();
+    setIsBuzzerActive(false);
+  };
 
   // A-3: Pre-emptively unlock mobile AudioContext on first touch / click
   useEffect(() => {
@@ -111,42 +182,93 @@ export const TicketDetail: React.FC = () => {
   }
 
   return (
-    <MobileContainer theme={isMyTurn ? 'dark' : 'light'}>
-      {/* Top Header */}
-      <Header
-        title={queue.name}
-        showBack
-        backTo={queueId ? `/q/${queueId}` : '/'}
-        rightElement={
-          <button
-            onClick={refresh}
-            className={`p-2 rounded-xl transition-all active:scale-95 flex items-center gap-1 text-xs font-bold ${
-              isMyTurn ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-            title="새로고침"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">새로고침</span>
-          </button>
-        }
-      />
+    <div className={`min-h-screen transition-all ${isBuzzerActive ? 'ring-8 ring-amber-400 ring-offset-4 animate-pulse' : ''}`}>
+      <MobileContainer theme={isMyTurn ? 'dark' : 'light'}>
+        {/* Top Header */}
+        <Header
+          title={queue.name}
+          showBack
+          backTo={queueId ? `/q/${queueId}` : '/'}
+          rightElement={
+            <button
+              onClick={refresh}
+              className={`p-2 rounded-xl transition-all active:scale-95 flex items-center gap-1 text-xs font-bold ${
+                isMyTurn ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+              title="새로고침"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">새로고침</span>
+            </button>
+          }
+        />
 
-      <main className="px-5 py-6 flex-1 flex flex-col justify-between">
-        <div className="space-y-6">
-          {/* Status Alert Banner */}
-          {isMyTurn ? (
-            <div className="text-center animate-slideUp">
-              <div className="w-16 h-16 rounded-full bg-white text-emerald-600 flex items-center justify-center mx-auto mb-3 shadow-xl animate-bounce">
-                <Sparkles className="w-8 h-8" />
+        <main className="px-5 py-6 flex-1 flex flex-col justify-between">
+          <div className="space-y-6">
+            {/* Buzzer Active Ringing Bar */}
+            {isBuzzerActive && (
+              <div className="p-4 bg-amber-500 text-slate-950 font-black rounded-3xl text-center shadow-2xl animate-bounce flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm">
+                  <BellRing className="w-5 h-5 animate-spin" />
+                  <span>진동벨 호출 중! (소리/진동)</span>
+                </div>
+                <button
+                  onClick={handleDismissBuzzer}
+                  className="px-4 py-2 bg-slate-950 text-white rounded-2xl text-xs font-bold active:scale-95 transition"
+                >
+                  확인 (끄기)
+                </button>
               </div>
-              <h2 className="text-3xl font-black tracking-tight text-white drop-shadow-md">
-                지금 입장해 주세요!
-              </h2>
-              <p className="text-emerald-100 text-sm mt-1 font-medium">
-                고객님의 순번이 되었습니다. 직원에게 화면을 보여주세요.
-              </p>
-            </div>
-          ) : ticket.status === 'COMPLETED' ? (
+            )}
+
+            {/* Wake Lock Screen Alert Banner */}
+            {ticket.status === 'WAITING' && (
+              <div className="p-3 bg-brand-50 border border-brand-200/70 rounded-2xl flex items-center justify-between text-xs text-brand-900 shadow-sm">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Smartphone className="w-4 h-4 text-brand-600 shrink-0" />
+                  이 브라우저 창을 켜두시면 차례가 되었을 때 진동과 벨소리로 알려드립니다 (화면 꺼짐 방지 적용 중)
+                </span>
+                <button
+                  onClick={() => setIsPwaModalOpen(true)}
+                  className="text-[11px] text-brand-600 underline font-bold shrink-0 ml-2 whitespace-nowrap active:scale-95"
+                >
+                  화면 끄고 싶다면?
+                </button>
+              </div>
+            )}
+
+            {/* Bypassed Waiting Notice Banner */}
+            {isBypassed && ticket.status === 'WAITING' && (
+              <div className="p-3.5 bg-amber-50 border border-amber-200/90 rounded-2xl flex items-center gap-2.5 text-xs text-amber-900 shadow-sm animate-pulse">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span className="font-semibold leading-relaxed">
+                  인원수에 맞는 좌석이 부족하여 다음 번호가 먼저 호출될 수 있습니다 (현재 순번 유지 중)
+                </span>
+              </div>
+            )}
+
+            {/* Status Alert Banner */}
+            {isMyTurn ? (
+              <div className="text-center animate-slideUp">
+                <div className="w-16 h-16 rounded-full bg-white text-emerald-600 flex items-center justify-center mx-auto mb-3 shadow-xl animate-bounce">
+                  <Sparkles className="w-8 h-8" />
+                </div>
+                <h2 className="text-3xl font-black tracking-tight text-white drop-shadow-md">
+                  지금 입장해 주세요!
+                </h2>
+                <p className="text-emerald-100 text-sm mt-1 font-medium">
+                  고객님의 순번이 되었습니다. 직원에게 화면을 보여주세요.
+                </p>
+                {isBuzzerActive && (
+                  <button
+                    onClick={handleDismissBuzzer}
+                    className="mt-4 px-6 py-2.5 bg-white text-emerald-700 font-extrabold rounded-2xl text-sm shadow-lg hover:bg-emerald-50 active:scale-95 transition"
+                  >
+                    알림 소리 끄기 (확인)
+                  </button>
+                )}
+              </div>
+            ) : ticket.status === 'COMPLETED' ? (
             <div className="text-center p-4 rounded-3xl bg-blue-50 border border-blue-200 text-blue-900">
               <CheckCircle2 className="w-8 h-8 text-blue-600 mx-auto mb-1" />
               <h3 className="text-lg font-bold">입장이 완료되었습니다</h3>
@@ -319,6 +441,14 @@ export const TicketDetail: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* iOS PWA Guide Modal */}
+      <PwaGuideModal
+        isOpen={isPwaModalOpen}
+        onClose={() => setIsPwaModalOpen(false)}
+        isInApp={deviceConfig?.isInApp ?? false}
+      />
     </MobileContainer>
+    </div>
   );
 };

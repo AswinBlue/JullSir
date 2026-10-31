@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQueue } from '../hooks/useQueue';
 import { queueRepository } from '../services/storage';
 import { MobileContainer } from '../components/common/MobileContainer';
-import { EmailInput, isValidEmail } from '../components/common/EmailInput';
 import { Header } from '../components/common/Header';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -20,7 +19,6 @@ export const QueueIssue: React.FC = () => {
   const navigate = useNavigate();
   const { summary, loading, error } = useQueue(queueId);
 
-  const [email, setEmail] = useState('');
   const [issuing, setIssuing] = useState(false);
   const [issueError, setIssueError] = useState('');
 
@@ -46,16 +44,11 @@ export const QueueIssue: React.FC = () => {
       return;
     }
 
-    if (!isValidEmail(email)) {
-      setIssueError('올바른 이메일 주소를 입력해 주세요.');
-      return;
-    }
-
     setIssueError('');
     setIssuing(true);
 
     try {
-      const ticket = await queueRepository.issueTicket(queueId, email);
+      const ticket = await queueRepository.issueTicket(queueId);
 
       // Save ticket id to local storage for quick access
       localStorage.setItem(`jullsir_my_ticket_${queueId}`, ticket.id);
@@ -68,8 +61,6 @@ export const QueueIssue: React.FC = () => {
       setIssuing(false);
     }
   };
-
-  const isEmailValid = isValidEmail(email);
 
   if (loading) {
     return (
@@ -148,40 +139,36 @@ export const QueueIssue: React.FC = () => {
               </p>
             </div>
           ) : (
-            <Card elevated className="p-6 space-y-4">
-              <div className="text-left">
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  호출 알림 이메일 등록 <span className="text-rose-500">* (필수)</span>
-                </label>
+            <Card elevated className="p-6 space-y-5">
+              <div className="text-center space-y-1">
+                <span className="inline-block px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[11px] font-bold">
+                  개인정보 수집 0건 (익명 발권)
+                </span>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  원클릭 대기표 발권
+                </h3>
                 <p className="text-xs text-slate-500">
-                  순번이 되었을 때 입장 안내 메일을 받으실 이메일을 입력해 주세요.
+                  이메일이나 전화번호 입력 없이 바로 번호표를 뽑을 수 있습니다.
                 </p>
               </div>
 
-              <form onSubmit={handleIssueTicket} className="space-y-4">
-                <EmailInput
-                  value={email}
-                  onChange={setEmail}
-                  disabled={issuing}
-                  placeholder="예: yourname@example.com"
-                  theme="light"
-                  errorMessage={issueError}
-                />
+              {issueError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700">
+                  {issueError}
+                </div>
+              )}
 
+              <form onSubmit={handleIssueTicket} className="space-y-4">
                 <Button
                   type="submit"
                   variant="primary"
                   size="xl"
                   fullWidth
-                  disabled={issuing || !isEmailValid}
+                  disabled={issuing}
                   className="font-extrabold text-base shadow-lg shadow-brand-500/25 mt-2 gap-2"
                 >
                   <Ticket className="w-5 h-5" />
-                  {issuing 
-                    ? '순번표 발급 중...' 
-                    : isEmailValid 
-                    ? '대기 번호표 뽑기' 
-                    : '이메일을 정확히 입력해 주세요'}
+                  {issuing ? '순번표 발급 중...' : '대기 번호표 뽑기'}
                 </Button>
               </form>
             </Card>

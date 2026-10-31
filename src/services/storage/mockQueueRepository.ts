@@ -278,7 +278,7 @@ export class MockQueueRepository implements IQueueRepository {
 
   // --- Ticket Operations ---
 
-  public async issueTicket(queueId: string, email: string): Promise<Ticket> {
+  public async issueTicket(queueId: string, email?: string): Promise<Ticket> {
     const queues = this.getQueues();
     const queue = queues[queueId];
 
@@ -290,23 +290,25 @@ export class MockQueueRepository implements IQueueRepository {
       throw new Error('현재 대기열 접수가 마감되었습니다.');
     }
 
-    // Email validation
-    const trimmedEmail = email?.trim() || '';
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
-      throw new Error('올바른 이메일 주소를 입력해 주세요.');
-    }
+    let trimmedEmail: string | undefined = undefined;
+    if (email !== undefined) {
+      trimmedEmail = email.trim();
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+        throw new Error('올바른 이메일 주소를 입력해 주세요.');
+      }
 
-    // N-1: 동일 이메일 중복 발급 시 신규 채번 방지 및 기존 발급 티켓 복원
-    const allTickets = this.getTickets();
-    const existingTicket = Object.values(allTickets).find(
-      t => t.queueId === queueId && t.email?.toLowerCase() === trimmedEmail.toLowerCase() && t.status === 'WAITING'
-    );
-    if (existingTicket) {
-      return {
-        ...existingTicket,
-        isExisting: true
-      };
+      // If email provided, check for active ticket recovery
+      const allTickets = this.getTickets();
+      const existingTicket = Object.values(allTickets).find(
+        t => t.queueId === queueId && t.email?.toLowerCase() === trimmedEmail!.toLowerCase() && t.status === 'WAITING'
+      );
+      if (existingTicket) {
+        return {
+          ...existingTicket,
+          isExisting: true
+        };
+      }
     }
 
     // Atomic increment
@@ -320,7 +322,7 @@ export class MockQueueRepository implements IQueueRepository {
       id: ticketId,
       queueId,
       ticketNumber: nextTicketNumber,
-      email: trimmedEmail,
+      email: trimmedEmail || undefined,
       status: 'WAITING',
       createdAt: new Date().toISOString()
     };
@@ -419,6 +421,48 @@ export class MockQueueRepository implements IQueueRepository {
     this.broadcast({ type: 'TICKET_CALLED', queueId: queue.id, ticket: nextTicket });
 
     return nextTicket;
+  }
+
+  /**
+   * @func callSpecificTicket
+   * @sds {SDS26110105}
+   * @prd {PRD26110105}
+   * @seq {SQ4-01, SQ4-03}
+   * @state {TR-06}
+   * @description 점주가 대기열 목록에서 특정 티켓을 지정하여 비순차적으로 호출한다.
+   * @param {string} adminToken - 점주 관리자 토큰
+   * @param {string} ticketId - 호출할 티켓 식별자
+   * @returns {Promise<Ticket>} 호출된 티켓 정보
+   * @throws {Error} 관리자 권한 없거나 티켓이 존재하지 않는 경우
+   */
+  public async callSpecificTicket(adminToken: string, ticketId: string): Promise<Ticket> {
+    const queue = await this.getQueueByAdminToken(adminToken);
+    if (!queue) throw new Error('관리자 권한이 없습니다.');
+
+    const tickets = this.getTickets();
+    const ticket = tickets[ticketId];
+    if (!ticket || ticket.queueId !== queue.id) {
+      throw new Error('티켓을 찾을 수 없습니다.');
+    }
+
+    ticket.status = 'CALLED';
+    ticket.calledAt = new Date().toISOString();
+    tickets[ticketId] = ticket;
+    this.saveTickets(tickets);
+
+    // 비순차 호출 시에도 현재 호출/입장 번호 갱신
+    const queues = this.getQueues();
+    queue.currentServingNumber = ticket.ticketNumber;
+    queues[queue.id] = queue;
+    this.saveQueues(queues);
+
+    // 알림 전송
+    notificationService.notifyTicketCalled(ticket.ticketNumber, queue.name);
+
+    this.broadcast({ type: 'QUEUE_UPDATED', queueId: queue.id, queue });
+    this.broadcast({ type: 'TICKET_CALLED', queueId: queue.id, ticket });
+
+    return ticket;
   }
 
   // N-2: 현재 번호 재호출 (다시 알림 전송)

@@ -4,7 +4,6 @@ import { useQueue } from '../hooks/useQueue';
 import { queueRepository } from '../services/storage';
 import { generateQrDataUrl } from '../utils/qr';
 import { MobileContainer } from '../components/common/MobileContainer';
-import { EmailInput, isValidEmail } from '../components/common/EmailInput';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { soundManager } from '../utils/sound';
@@ -16,7 +15,8 @@ import {
   CheckCircle2, 
   QrCode, 
   AlertCircle,
-  Info
+  Info,
+  Ticket as TicketIcon
 } from 'lucide-react';
 
 export const StoreDisplay: React.FC = () => {
@@ -25,7 +25,6 @@ export const StoreDisplay: React.FC = () => {
   const { summary, loading, error } = useQueue(queueId);
 
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [emailInput, setEmailInput] = useState('');
   const [issuing, setIssuing] = useState(false);
   const [issuedTicket, setIssuedTicket] = useState<Ticket | null>(null);
   const [issuedTicketQrUrl, setIssuedTicketQrUrl] = useState<string>('');
@@ -62,7 +61,7 @@ export const StoreDisplay: React.FC = () => {
     };
   }, []);
 
-  // Handle direct tablet ticket issuance with strict email verification
+  // Handle direct tablet ticket issuance (Zero-PII anonymous issuance)
   const handleDirectIssue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!queueId) return;
@@ -72,18 +71,12 @@ export const StoreDisplay: React.FC = () => {
       return;
     }
 
-    if (!isValidEmail(emailInput)) {
-      setInputError('올바른 이메일 주소를 입력해 주세요.');
-      return;
-    }
-
     setInputError('');
     setIssuing(true);
 
     try {
-      const ticket = await queueRepository.issueTicket(queueId, emailInput);
+      const ticket = await queueRepository.issueTicket(queueId);
       setIssuedTicket(ticket);
-      setEmailInput('');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '대기 번호표 발급에 실패했습니다.';
       setInputError(msg);
@@ -125,7 +118,6 @@ export const StoreDisplay: React.FC = () => {
   }
 
   const { queue, waitingCount } = summary;
-  const isEmailValid = isValidEmail(emailInput);
 
   // Calculate stats for newly issued ticket
   const myTicketNumber = issuedTicket?.ticketNumber || 0;
@@ -243,36 +235,31 @@ export const StoreDisplay: React.FC = () => {
               현장에서 바로 번호표 뽑기
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              호출 안내를 받을 이메일을 정확히 입력해 주세요. (필수)
+              개인정보 입력 없이 버튼 하나로 즉시 대기 번호표가 출력됩니다.
             </p>
           </div>
 
-          <form onSubmit={handleDirectIssue} className="space-y-3">
-            <EmailInput
-              value={emailInput}
-              onChange={setEmailInput}
-              disabled={queue.isClosed || issuing}
-              placeholder="호출 안내받을 이메일 주소 입력"
-              theme="dark"
-              errorMessage={inputError}
-            />
+          {inputError && (
+            <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-2xl text-xs text-rose-300">
+              {inputError}
+            </div>
+          )}
 
+          <form onSubmit={handleDirectIssue} className="space-y-3">
             <Button
               type="submit"
               variant="primary"
               size="lg"
               fullWidth
-              disabled={queue.isClosed || issuing || !isEmailValid}
+              disabled={queue.isClosed || issuing}
               className="gap-2 text-sm font-extrabold shadow-lg shadow-brand-500/20"
             >
-              <BellRing className="w-4 h-4" />
+              <TicketIcon className="w-4 h-4" />
               {queue.isClosed 
                 ? '접수 마감됨' 
                 : issuing 
                 ? '발급 처리 중...' 
-                : isEmailValid 
-                ? '번호표 뽑기' 
-                : '이메일을 입력해 주세요'}
+                : '대기 번호표 뽑기'}
             </Button>
           </form>
         </div>
