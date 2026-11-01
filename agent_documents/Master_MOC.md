@@ -6,9 +6,9 @@
 
 ## 1. 산출물 인덱스 (Project Artifact Index)
 
-| 도메인 / 구분 | 요청사항 (`REQ`) | 기획 명세서 (`PRD`) | 상세 설계서 (`SDS`) | 자동화 테스트 (`TST`) |
-|---|---|---|---|---|
-| **실시간 알림 및 대기열** | [req_2026_10.md](requests/req_2026_10.md), [req_2026_11.md](requests/req_2026_11.md) | [prd_queue_notification.md](proposals/prd_queue_notification.md) | [sds_queue_notification.md](design/sds_queue_notification.md) | [tests/notificationAlert.test.ts](../tests/notificationAlert.test.ts) |
+| 도메인 / 구분 | 요청사항 (`REQ`) | 기획 명세서 (`PRD`) | 상세 설계서 (`SDS`) | 자동화 테스트 (`TST`) | 결함 대장 (`ERR`) |
+|---|---|---|---|---|---|
+| **실시간 알림 및 대기열** | [req_2026_10.md](requests/req_2026_10.md), [req_2026_11.md](requests/req_2026_11.md) | [prd_queue_notification.md](proposals/prd_queue_notification.md) | [sds_queue_notification.md](design/sds_queue_notification.md) | [tests/notificationAlert.test.ts](../tests/notificationAlert.test.ts) | [err_queue_notification.md](errors/err_queue_notification.md) |
 
 ---
 

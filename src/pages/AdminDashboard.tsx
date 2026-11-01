@@ -486,19 +486,20 @@ export const AdminDashboard: React.FC = () => {
               </span>
             </Button>
 
-            {/* Skip Button for Current Number */}
-            <Button
-              variant="outline"
-              size="md"
-              fullWidth
-              disabled={!nextTicket}
-              onClick={() => nextTicket && handleSkipTicket(nextTicket.id)}
-              className="border-slate-300 text-slate-700 hover:bg-slate-100 gap-2 font-bold text-sm"
-              title="현재 대기 순번 건너뛰기"
-            >
-              <SkipForward className="w-4 h-4 text-slate-500 shrink-0" />
-              <span>현재 번호 스킵</span>
-            </Button>
+            {/* Skip Button for Next Waiting Ticket */}
+            {nextTicket && (
+              <Button
+                variant="outline"
+                size="md"
+                fullWidth
+                onClick={() => handleSkipTicket(nextTicket.id)}
+                className="border-slate-300 text-slate-700 hover:bg-slate-100 gap-2 font-bold text-sm"
+                title={`#${nextTicket.ticketNumber}번 대기 순번 건너뛰기`}
+              >
+                <SkipForward className="w-4 h-4 text-slate-500 shrink-0" />
+                <span>#{nextTicket.ticketNumber}번 순번 스킵 (건너뛰기)</span>
+              </Button>
+            )}
           </div>
 
           {/* N-2: 현재 번호 재호출 (다시 알림) */}

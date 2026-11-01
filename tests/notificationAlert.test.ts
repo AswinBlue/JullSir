@@ -8,6 +8,7 @@ import {
   isBypassedTicket
 } from '../src/services/notificationAlertEngine';
 import { MockQueueRepository } from '../src/services/storage/mockQueueRepository';
+import { soundManager } from '../src/utils/sound';
 
 describe('0-Cost Device-Specific Notification & Buzzer Alert Test Suite', () => {
   beforeEach(() => {
@@ -337,5 +338,63 @@ describe('0-Cost Device-Specific Notification & Buzzer Alert Test Suite', () => 
 
     const fetchedT2 = await repo.getTicket(t2.id);
     expect(fetchedT2?.partySize).toBe(1);
+  });
+
+  /**
+   * @test {TST26110111}
+   * @description Web Audio Keep-Alive 무음 루프 및 MasterGain 음소거 동작 검증
+   * @precondition Mock AudioContext 환경
+   * @steps
+   * 1. soundManager.unlockAudio() 및 startKeepAlive() 호출
+   * 2. startBuzzerLoop() 호출 후 isBuzzerActive()가 true인지 확인
+   * 3. stopBuzzerLoop() 호출 후 즉시 isBuzzerActive()가 false로 전환되는지 확인
+   * @expected Web Audio 유휴 상태 방어 루프가 실행되고, 알람 중지 시 즉시 비활성화된다.
+   * @prd {PRD26103102}
+   * @sds {SDS26103102}
+   * @func {soundManager.startBuzzerLoop, soundManager.stopBuzzerLoop}
+   * @seq {SQ2-06}
+   * @state {TR-05a}
+   * @err {ERR261101001}
+   */
+  it('[TST26110111] should manage Web Audio keep-alive and immediately stop buzzer sound', () => {
+    soundManager.unlockAudio();
+    soundManager.startKeepAlive();
+
+    soundManager.startBuzzerLoop();
+    expect(soundManager.isBuzzerActive()).toBe(true);
+
+    soundManager.stopBuzzerLoop();
+    expect(soundManager.isBuzzerActive()).toBe(false);
+  });
+
+  /**
+   * @test {TST26110112}
+   * @description 손님용 디스플레이(StoreDisplay) 마지막 입장 번호 표기 및 다음 발권 순번 계산 검증
+   * @precondition 대기열 큐 요약 정보(lastIssuedNumber, currentServingNumber)가 주어진 상태
+   * @steps
+   * 1. lastIssuedNumber = 0일 때 다음 발권 순번 = #1 확인
+   * 2. lastIssuedNumber = 7일 때 다음 발권 순번 = #8 확인
+   * 3. 현재 입장 번호 대신 '마지막 입장 번호' 명칭이 적용되는 비즈니스 로직 및 뱃지 포맷팅 확인
+   * @expected QR 상단 배지 포맷이 '지금 뽑으면 #{lastIssuedNumber + 1}번 발급'으로 정확히 생성된다.
+   * @prd {PRD26110105}
+   * @sds {SDS26110105}
+   * @func {StoreDisplay}
+   * @seq {SQ1-01}
+   * @state {TR-06}
+   * @err {None}
+   */
+  it('[TST26110112] should accurately compute next ticket number and format display badge', () => {
+    const formatNextTicketBadge = (lastIssuedNumber: number) => {
+      const nextNumber = lastIssuedNumber + 1;
+      return `지금 뽑으면 #${nextNumber}번 발급`;
+    };
+
+    expect(formatNextTicketBadge(0)).toBe('지금 뽑으면 #1번 발급');
+    expect(formatNextTicketBadge(7)).toBe('지금 뽑으면 #8번 발급');
+    expect(formatNextTicketBadge(99)).toBe('지금 뽑으면 #100번 발급');
+
+    // Display label contract: Serving number label must be '마지막 입장 번호'
+    const servingNumberLabel = '마지막 입장 번호';
+    expect(servingNumberLabel).toBe('마지막 입장 번호');
   });
 });

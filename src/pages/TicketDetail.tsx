@@ -155,7 +155,7 @@ export const TicketDetail: React.FC = () => {
     };
   }, [ticket?.status, isBuzzerActive]);
 
-  // Pre-emptively unlock mobile AudioContext on first touch / click / scroll
+  // Pre-emptively unlock mobile AudioContext on first touch / click / scroll / keydown
   useEffect(() => {
     const handleUserInteraction = () => {
       soundManager.unlockAudio();
@@ -163,13 +163,17 @@ export const TicketDetail: React.FC = () => {
         startBuzzer();
       }
     };
-    window.addEventListener('click', handleUserInteraction);
-    window.addEventListener('touchstart', handleUserInteraction);
-    window.addEventListener('pointerdown', handleUserInteraction);
+    window.addEventListener('click', handleUserInteraction, { capture: true, passive: true });
+    window.addEventListener('touchstart', handleUserInteraction, { capture: true, passive: true });
+    window.addEventListener('pointerdown', handleUserInteraction, { capture: true, passive: true });
+    window.addEventListener('scroll', handleUserInteraction, { capture: true, passive: true });
+    window.addEventListener('keydown', handleUserInteraction, { capture: true, passive: true });
     return () => {
-      window.removeEventListener('click', handleUserInteraction);
-      window.removeEventListener('touchstart', handleUserInteraction);
-      window.removeEventListener('pointerdown', handleUserInteraction);
+      window.removeEventListener('click', handleUserInteraction, { capture: true });
+      window.removeEventListener('touchstart', handleUserInteraction, { capture: true });
+      window.removeEventListener('pointerdown', handleUserInteraction, { capture: true });
+      window.removeEventListener('scroll', handleUserInteraction, { capture: true });
+      window.removeEventListener('keydown', handleUserInteraction, { capture: true });
     };
   }, [ticket?.status]);
 

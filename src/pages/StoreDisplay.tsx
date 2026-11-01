@@ -178,10 +178,10 @@ export const StoreDisplay: React.FC = () => {
 
         {/* 2. LIVE METRICS (Serving Number & Waiting Count) */}
         <div className="grid grid-cols-2 gap-3 text-center">
-          {/* Current Serving Number */}
+          {/* Last Serving Number */}
           <div className="bg-slate-900/90 border-2 border-brand-500/40 rounded-3xl p-4 shadow-lg flex flex-col justify-center">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              현재 입장 번호
+              마지막 입장 번호
             </span>
             <div className="text-4xl font-black text-white mt-1">
               {queue.currentServingNumber > 0 ? (
@@ -208,6 +208,10 @@ export const StoreDisplay: React.FC = () => {
 
         {/* 3. QR CODE SECTION FOR MOBILE PASSENGERS */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 text-center shadow-lg flex flex-col items-center">
+          <div className="mb-3 px-3.5 py-1.5 rounded-full bg-brand-500/20 border border-brand-500/40 text-brand-300 text-xs font-black inline-flex items-center gap-1.5">
+            <TicketIcon className="w-3.5 h-3.5 text-brand-400" />
+            <span>지금 뽑으면 #{queue.lastIssuedNumber + 1}번 발급</span>
+          </div>
           <div className="p-3 bg-white rounded-2xl shadow-md inline-block">
             {qrDataUrl ? (
               <img

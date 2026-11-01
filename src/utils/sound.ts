@@ -36,12 +36,13 @@ class SoundManager {
     if (!ctx) return;
 
     try {
-      const buffer = ctx.createBuffer(1, 1, 22050);
+      // Chromium requires buffer length >= 128 frames for looping source nodes
+      const buffer = ctx.createBuffer(1, 256, 22050);
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.loop = true;
       const silentGain = ctx.createGain();
-      silentGain.gain.value = 0;
+      silentGain.gain.value = 0.0001;
       source.connect(silentGain);
       silentGain.connect(ctx.destination);
       source.start(0);
@@ -49,6 +50,11 @@ class SoundManager {
     } catch {
       // ignore
     }
+  }
+
+  // Check if AudioContext is currently active and running
+  public isAudioRunning(): boolean {
+    return !!this.audioCtx && this.audioCtx.state === 'running';
   }
 
   // Pre-emptively unlock AudioContext on first user interaction (Mobile Autoplay Policy)
