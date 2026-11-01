@@ -39,6 +39,7 @@ export interface Ticket {
 export interface QueueSummary {
   queue: Queue;
   waitingCount: number;
+  waitingTicketNumbers?: number[];
   currentServingTicket?: Ticket;
   nextTicket?: Ticket;
   recentTickets: Ticket[];

@@ -87,9 +87,12 @@ export const CreateQueue: React.FC = () => {
             <Card elevated>
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-bold text-slate-800 mb-1.5">
-                    대기열 / 매장 이름 <span className="text-brand-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-bold text-slate-800">
+                      대기열 / 매장 이름 <span className="text-brand-500">*</span>
+                    </label>
+                    <span className="text-[11px] text-slate-400 font-medium">{name.length}/50</span>
+                  </div>
                   <input
                     type="text"
                     required
@@ -102,18 +105,21 @@ export const CreateQueue: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-800 mb-1.5">
-                    손님 안내 사항 (선택)
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-bold text-slate-800">
+                      손님 안내 사항 (선택)
+                    </label>
+                    <span className="text-[11px] text-slate-400 font-medium">{description.length}/500</span>
+                  </div>
                   <textarea
-                    rows={3}
-                    maxLength={200}
+                    rows={4}
+                    maxLength={500}
                     placeholder="예: 5인 이상 단체는 매장으로 문의해 주세요. 호출 후 5분 내 미입장 시 자동 취소됩니다."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none transition-all"
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none transition-all leading-relaxed"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1 text-right">최대 200자</p>
+                  <p className="text-[11px] text-slate-400 mt-1 text-right">최대 500자 (줄바꿈 지원)</p>
                 </div>
 
                 {error && (

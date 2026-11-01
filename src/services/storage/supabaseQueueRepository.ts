@@ -363,6 +363,7 @@ export class SupabaseQueueRepository implements IQueueRepository {
     return {
       queue,
       waitingCount: waitingTickets.length,
+      waitingTicketNumbers: waitingTickets.map(t => t.ticketNumber),
       currentServingTicket,
       nextTicket: waitingTickets[0] || undefined,
       recentTickets,

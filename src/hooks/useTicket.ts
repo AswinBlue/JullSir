@@ -1,17 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Ticket, Queue, QueueEvent } from '../types';
 import { queueRepository } from '../services/storage';
-import { notificationService } from '../services/notification/notificationService';
 import { isBypassedTicket } from '../services/notificationAlertEngine';
 
-export function useTicket(ticketId?: string) {
-  const [ticket, setTicket] = useState<Ticket | null>(null);
+export function useTicket(ticketId?: string, initialTicket?: Ticket | null) {
+  const [ticket, setTicket] = useState<Ticket | null>(initialTicket || null);
   const [queue, setQueue] = useState<Queue | null>(null);
   const [waitingCount, setWaitingCount] = useState<number>(0);
+  const [waitingTicketNumbers, setWaitingTicketNumbers] = useState<number[]>([]);
   const [avgWaitTimeMinutes, setAvgWaitTimeMinutes] = useState<number>(3);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialTicket);
   const [error, setError] = useState<string | null>(null);
-  const prevStatusRef = useRef<string | null>(null);
+  const prevStatusRef = useRef<string | null>(initialTicket?.status || null);
+  const ticketRef = useRef<Ticket | null>(ticket);
+  ticketRef.current = ticket;
 
   const fetchTicketAndQueue = useCallback(async () => {
     if (!ticketId) {
@@ -27,18 +29,15 @@ export function useTicket(ticketId?: string) {
       }
 
       setTicket(t);
-
-      // Check if newly called
-      if (prevStatusRef.current === 'WAITING' && t.status === 'CALLED') {
-        const q = await queueRepository.getQueue(t.queueId);
-        notificationService.notifyTicketCalled(t.ticketNumber, q?.name || '줄서');
-      }
       prevStatusRef.current = t.status;
 
       const summary = await queueRepository.getQueueSummary(t.queueId);
       if (summary) {
         setQueue(summary.queue);
         setWaitingCount(summary.waitingCount);
+        if (summary.waitingTicketNumbers) {
+          setWaitingTicketNumbers(summary.waitingTicketNumbers);
+        }
         if (summary.avgWaitTimeMinutes) {
           setAvgWaitTimeMinutes(summary.avgWaitTimeMinutes);
         }
@@ -60,7 +59,7 @@ export function useTicket(ticketId?: string) {
 
     const unsubscribe = queueRepository.subscribe((event: QueueEvent) => {
       if (event.type === 'QUEUE_EXPIRED') {
-        if (ticket && event.queueId === ticket.queueId) {
+        if (ticketRef.current && event.queueId === ticketRef.current.queueId) {
           setError('대기열이 종료되었습니다.');
           setTicket(null);
         }
@@ -95,7 +94,7 @@ export function useTicket(ticketId?: string) {
       window.removeEventListener('focus', handleSync);
       window.removeEventListener('online', handleSync);
     };
-  }, [ticketId, fetchTicketAndQueue, ticket]);
+  }, [ticketId, fetchTicketAndQueue]);
 
   const cancel = async () => {
     if (!ticketId) return;
@@ -110,12 +109,17 @@ export function useTicket(ticketId?: string) {
     }
   };
 
-  // Calculate remaining people ahead and behind
+  // Calculate remaining people ahead and behind based on actual WAITING tickets
   let waitingAhead = 0;
   let waitingBehind = 0;
-  if (ticket && queue && ticket.status === 'WAITING') {
-    waitingAhead = Math.max(0, ticket.ticketNumber - queue.currentServingNumber - 1);
-    waitingBehind = Math.max(0, waitingCount - waitingAhead - 1);
+  if (ticket && ticket.status === 'WAITING') {
+    if (waitingTicketNumbers.length > 0) {
+      waitingAhead = waitingTicketNumbers.filter(num => num < ticket.ticketNumber).length;
+      waitingBehind = waitingTicketNumbers.filter(num => num > ticket.ticketNumber).length;
+    } else if (queue) {
+      waitingAhead = Math.max(0, ticket.ticketNumber - queue.currentServingNumber - 1);
+      waitingBehind = Math.max(0, waitingCount - waitingAhead - 1);
+    }
   }
 
   // N-3: 예상 대기 시간 (분) = (평균 소요시간) * (내 번호 앞 대기인원)

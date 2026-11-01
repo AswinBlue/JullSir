@@ -156,13 +156,13 @@ export const StoreDisplay: React.FC = () => {
 
           {/* Description Section */}
           {queue.description ? (
-            <div className="mt-3 p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 text-xs text-slate-300 leading-relaxed text-left flex items-start gap-2">
+            <div className="mt-3 p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 text-xs text-slate-300 leading-relaxed text-left flex items-start gap-2 whitespace-pre-wrap break-words">
               <Info className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
               <span>{queue.description}</span>
             </div>
           ) : (
             <p className="text-xs text-slate-500 mt-1.5">
-              순번이 되면 이메일로 호출 안내를 드립니다.
+              순번이 되면 실시간으로 화면과 소리로 안내해 드립니다.
             </p>
           )}
 
@@ -235,7 +235,7 @@ export const StoreDisplay: React.FC = () => {
               현장에서 바로 번호표 뽑기
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              개인정보 입력 없이 버튼 하나로 즉시 대기 번호표가 출력됩니다.
+              버튼 하나로 간편하게 대기 번호표를 발급받을 수 있습니다.
             </p>
           </div>
 
@@ -290,7 +290,7 @@ export const StoreDisplay: React.FC = () => {
                 #{issuedTicket.ticketNumber}번
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                등록된 이메일로 호출 시 안내가 전송됩니다.
+                차례가 되면 스마트폰 화면과 알림으로 안내해 드립니다.
               </p>
             </div>
 
@@ -335,24 +335,28 @@ export const StoreDisplay: React.FC = () => {
               </span>
             </div>
 
-            {/* Smartphone Live Tracking QR */}
-            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/80 flex items-center gap-3 text-left">
-              <div className="p-1.5 bg-white rounded-xl border border-slate-200 shrink-0">
-                {issuedTicketQrUrl && (
+            {/* Smartphone Live Tracking QR (Large and High Visibility) */}
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 flex flex-col items-center text-center space-y-3">
+              <div className="p-3 bg-white rounded-2xl border-2 border-slate-200 shadow-sm inline-block">
+                {issuedTicketQrUrl ? (
                   <img
                     src={issuedTicketQrUrl}
-                    alt="내 순번 QR"
-                    className="w-16 h-16 object-contain"
+                    alt="내 순번 확인 QR 코드"
+                    className="w-56 h-56 sm:w-64 sm:h-64 object-contain mx-auto"
                   />
+                ) : (
+                  <div className="w-56 h-56 flex items-center justify-center text-slate-400">
+                    <QrCode className="w-12 h-12 animate-pulse" />
+                  </div>
                 )}
               </div>
-              <div className="flex-1 text-xs text-slate-600">
-                <p className="font-bold text-slate-900 flex items-center gap-1">
-                  <QrCode className="w-3.5 h-3.5 text-brand-500" />
-                  스마트폰으로 실시간 확인
+              <div>
+                <p className="font-extrabold text-sm text-slate-900 flex items-center justify-center gap-1.5">
+                  <QrCode className="w-4 h-4 text-brand-600" />
+                  스마트폰 카메라로 QR 코드를 스캔하세요
                 </p>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                  카메라로 스캔하시면 이동 중에도 내 순번 변화를 보실 수 있습니다.
+                <p className="text-xs text-slate-500 mt-1">
+                  스캔하시면 대기 순번과 호출 알림을 스마트폰에서 실시간으로 확인할 수 있습니다.
                 </p>
               </div>
             </div>

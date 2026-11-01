@@ -53,7 +53,7 @@ export const QueueIssue: React.FC = () => {
       // Save ticket id to local storage for quick access
       localStorage.setItem(`jullsir_my_ticket_${queueId}`, ticket.id);
 
-      navigate(`/q/${queueId}/ticket/${ticket.id}`);
+      navigate(`/q/${queueId}/ticket/${ticket.id}`, { state: { initialTicket: ticket } });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '순번표 발급에 실패했습니다.';
       setIssueError(msg);
@@ -106,12 +106,12 @@ export const QueueIssue: React.FC = () => {
             </h2>
 
             {queue.description ? (
-              <div className="mt-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-600 text-left flex items-start gap-2 leading-relaxed">
+              <div className="mt-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-600 text-left flex items-start gap-2 leading-relaxed whitespace-pre-wrap break-words">
                 <Info className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
                 <span>{queue.description}</span>
               </div>
             ) : (
-              <p className="text-xs text-slate-400 mt-1">순번이 되면 이메일로 호출 안내를 드립니다.</p>
+              <p className="text-xs text-slate-400 mt-1">순번이 되면 화면과 알림으로 안내해 드립니다.</p>
             )}
           </div>
 
@@ -141,14 +141,11 @@ export const QueueIssue: React.FC = () => {
           ) : (
             <Card elevated className="p-6 space-y-5">
               <div className="text-center space-y-1">
-                <span className="inline-block px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[11px] font-bold">
-                  개인정보 수집 0건 (익명 발권)
-                </span>
                 <h3 className="text-base font-extrabold text-slate-900">
-                  원클릭 대기표 발권
+                  대기 번호표 발급
                 </h3>
                 <p className="text-xs text-slate-500">
-                  이메일이나 전화번호 입력 없이 바로 번호표를 뽑을 수 있습니다.
+                  버튼을 누르면 바로 대기 번호표가 발급됩니다.
                 </p>
               </div>
 

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { useTicket } from '../hooks/useTicket';
-import { maskEmail } from '../utils/mask';
 import { soundManager } from '../utils/sound';
 import { MobileContainer } from '../components/common/MobileContainer';
 import { Header } from '../components/common/Header';
@@ -11,6 +10,7 @@ import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
 import { PwaGuideModal } from '../components/common/PwaGuideModal';
+import { Ticket } from '../types';
 import { 
   detectNotificationMode, 
   requestScreenWakeLock, 
@@ -26,12 +26,16 @@ import {
   Clock, 
   RefreshCw,
   BellRing,
-  Smartphone
+  Smartphone,
+  Store
 } from 'lucide-react';
 
 export const TicketDetail: React.FC = () => {
   const { queueId, ticketId } = useParams<{ queueId: string; ticketId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const initialTicket = (location.state as { initialTicket?: Ticket } | undefined)?.initialTicket;
+
   const { 
     ticket, 
     queue, 
@@ -45,7 +49,7 @@ export const TicketDetail: React.FC = () => {
     error, 
     cancel, 
     refresh 
-  } = useTicket(ticketId);
+  } = useTicket(ticketId, initialTicket);
 
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -57,7 +61,7 @@ export const TicketDetail: React.FC = () => {
   const buzzerEngineRef = useRef<BuzzerAlertEngine>(new BuzzerAlertEngine());
   const prevStatusRef = useRef<string | undefined>(undefined);
 
-  // Initialize device detection and WakeLock
+  // Initialize device detection and WakeLock (Only on Mobile iOS / Android)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const ua = navigator.userAgent;
@@ -68,16 +72,18 @@ export const TicketDetail: React.FC = () => {
     const config = detectNotificationMode(ua, hasPwaQuery, permission);
     setDeviceConfig(config);
 
-    if (config.autoShowPwaGuide) {
+    if (config.autoShowPwaGuide && config.isIos) {
       setIsPwaModalOpen(true);
     }
 
     // Auto request wake lock on mount for iOS or Android fallback
-    requestScreenWakeLock();
+    if (config.isIos || config.useWakeLockFallback) {
+      requestScreenWakeLock();
+    }
 
     // Re-request on visibility change
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && (config.isIos || config.useWakeLockFallback)) {
         requestScreenWakeLock();
       }
     };
@@ -207,16 +213,16 @@ export const TicketDetail: React.FC = () => {
           <div className="space-y-6">
             {/* Buzzer Active Ringing Bar */}
             {isBuzzerActive && (
-              <div className="p-4 bg-amber-500 text-slate-950 font-black rounded-3xl text-center shadow-2xl animate-bounce flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm">
-                  <BellRing className="w-5 h-5 animate-spin" />
-                  <span>진동벨 호출 중! (소리/진동)</span>
+              <div className="p-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 text-slate-950 font-black rounded-3xl text-center shadow-2xl animate-pulse flex flex-col sm:flex-row items-center justify-between gap-3 border-2 border-white">
+                <div className="flex items-center gap-2.5 text-base">
+                  <BellRing className="w-6 h-6 animate-bounce text-slate-950" />
+                  <span className="font-extrabold tracking-tight">진동벨 호출 중! (소리 / 진동)</span>
                 </div>
                 <button
                   onClick={handleDismissBuzzer}
-                  className="px-4 py-2 bg-slate-950 text-white rounded-2xl text-xs font-bold active:scale-95 transition"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-slate-950 text-white rounded-2xl text-sm font-black shadow-lg hover:bg-slate-900 active:scale-95 transition flex items-center justify-center gap-2"
                 >
-                  확인 (끄기)
+                  <span>🔔 알림 소리/진동 끄기 (확인)</span>
                 </button>
               </div>
             )}
@@ -228,12 +234,14 @@ export const TicketDetail: React.FC = () => {
                   <Smartphone className="w-4 h-4 text-brand-600 shrink-0" />
                   이 브라우저 창을 켜두시면 차례가 되었을 때 진동과 벨소리로 알려드립니다 (화면 꺼짐 방지 적용 중)
                 </span>
-                <button
-                  onClick={() => setIsPwaModalOpen(true)}
-                  className="text-[11px] text-brand-600 underline font-bold shrink-0 ml-2 whitespace-nowrap active:scale-95"
-                >
-                  화면 끄고 싶다면?
-                </button>
+                {deviceConfig?.isIos && (
+                  <button
+                    onClick={() => setIsPwaModalOpen(true)}
+                    className="text-[11px] text-brand-600 underline font-bold shrink-0 ml-2 whitespace-nowrap active:scale-95"
+                  >
+                    화면 끄고 싶다면?
+                  </button>
+                )}
               </div>
             )}
 
@@ -262,128 +270,137 @@ export const TicketDetail: React.FC = () => {
                 {isBuzzerActive && (
                   <button
                     onClick={handleDismissBuzzer}
-                    className="mt-4 px-6 py-2.5 bg-white text-emerald-700 font-extrabold rounded-2xl text-sm shadow-lg hover:bg-emerald-50 active:scale-95 transition"
+                    className="mt-4 px-6 py-3 bg-white text-emerald-800 font-black rounded-2xl text-sm shadow-xl hover:bg-emerald-50 active:scale-95 transition flex items-center justify-center gap-2 mx-auto"
                   >
-                    알림 소리 끄기 (확인)
+                    <BellRing className="w-4 h-4 animate-bounce" />
+                    <span>🔔 알림 소리/진동 끄기 (확인)</span>
                   </button>
                 )}
               </div>
             ) : ticket.status === 'COMPLETED' ? (
-            <div className="text-center p-4 rounded-3xl bg-blue-50 border border-blue-200 text-blue-900">
-              <CheckCircle2 className="w-8 h-8 text-blue-600 mx-auto mb-1" />
-              <h3 className="text-lg font-bold">입장이 완료되었습니다</h3>
-              <p className="text-xs text-blue-600 mt-0.5">즐거운 시간 되세요!</p>
-            </div>
-          ) : ticket.status === 'SKIPPED' ? (
-            <div className="text-center p-4 rounded-3xl bg-amber-50 border border-amber-200 text-amber-900">
-              <Clock className="w-8 h-8 text-amber-600 mx-auto mb-1" />
-              <h3 className="text-lg font-bold">순번이 지나갔습니다</h3>
-              <p className="text-xs text-amber-700 mt-0.5">매장 카운터에 순번 확인을 문의해 주세요.</p>
-            </div>
-          ) : ticket.status === 'CANCELLED' ? (
-            <div className="text-center p-4 rounded-3xl bg-rose-50 border border-rose-200 text-rose-900">
-              <XCircle className="w-8 h-8 text-rose-600 mx-auto mb-1" />
-              <h3 className="text-lg font-bold">대기가 취소되었습니다</h3>
-              <p className="text-xs text-rose-600 mt-0.5">다시 이용을 원하시면 새로 접수해 주세요.</p>
-            </div>
-          ) : (
-            <div className="text-center">
-              <span className="text-xs font-bold text-brand-600 uppercase tracking-wider block">
-                {queue.name}
-              </span>
-              <h2 className="text-2xl font-black text-slate-900 mt-0.5 tracking-tight">
-                실시간 대기 현황
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">창을 닫아도 실시간으로 순번이 업데이트됩니다</p>
-            </div>
-          )}
+              <div className="text-center p-4 rounded-3xl bg-blue-50 border border-blue-200 text-blue-900">
+                <CheckCircle2 className="w-8 h-8 text-blue-600 mx-auto mb-1" />
+                <h3 className="text-lg font-bold">입장이 완료되었습니다</h3>
+                <p className="text-xs text-blue-600 mt-0.5">즐거운 시간 되세요!</p>
+              </div>
+            ) : ticket.status === 'SKIPPED' ? (
+              <div className="text-center p-4 rounded-3xl bg-amber-50 border border-amber-200 text-amber-900">
+                <Clock className="w-8 h-8 text-amber-600 mx-auto mb-1" />
+                <h3 className="text-lg font-bold">순번이 지나갔습니다</h3>
+                <p className="text-xs text-amber-700 mt-0.5">매장 카운터에 순번 확인을 문의해 주세요.</p>
+              </div>
+            ) : ticket.status === 'CANCELLED' ? (
+              <div className="text-center p-4 rounded-3xl bg-rose-50 border border-rose-200 text-rose-900">
+                <XCircle className="w-8 h-8 text-rose-600 mx-auto mb-1" />
+                <h3 className="text-lg font-bold">대기가 취소되었습니다</h3>
+                <p className="text-xs text-rose-600 mt-0.5">다시 이용을 원하시면 새로 접수해 주세요.</p>
+              </div>
+            ) : (
+              <div className="text-center">
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                  실시간 대기 현황
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">창을 닫아도 실시간으로 순번이 업데이트됩니다</p>
+              </div>
+            )}
 
-          {/* Big Number Card */}
-          <Card elevated className={`p-8 text-center transition-all ${
-            isMyTurn 
-              ? 'bg-white text-slate-900 shadow-2xl border-4 border-white/80' 
-              : 'bg-white border-2 border-brand-100'
-          }`}>
-            <span className="text-xs font-bold text-slate-400 tracking-wider uppercase block mb-1">
-              내 대기 번호 (My Ticket)
-            </span>
-            <div className={`text-7xl sm:text-8xl font-black tracking-tight my-2 ${
-              isMyTurn ? 'text-emerald-600 animate-pulseFast' : 'text-slate-900'
+            {/* 1. Main Information: Big Number Card */}
+            <Card elevated className={`p-8 text-center transition-all ${
+              isMyTurn 
+                ? 'bg-white text-slate-900 shadow-2xl border-4 border-white/80' 
+                : 'bg-white border-2 border-brand-100'
             }`}>
-              #{ticket.ticketNumber}
-            </div>
+              <span className="text-xs font-bold text-slate-400 tracking-wider uppercase block mb-1">
+                내 대기 번호 (My Ticket)
+              </span>
+              <div className={`text-7xl sm:text-8xl font-black tracking-tight my-2 ${
+                isMyTurn ? 'text-emerald-600 animate-pulseFast' : 'text-slate-900'
+              }`}>
+                #{ticket.ticketNumber}
+              </div>
 
-            <div className="flex items-center justify-center gap-2 mt-3">
-              <Badge status={ticket.status} />
-              {ticket.email && (
-                <span className="text-xs text-slate-400 truncate max-w-[150px]">
-                  {maskEmail(ticket.email)}
-                </span>
+              <div className="flex items-center justify-center gap-2 mt-3">
+                <Badge status={ticket.status} />
+              </div>
+            </Card>
+
+            {/* 2. Secondary Information Group */}
+            <div className="space-y-3">
+              {/* Card A: Realtime Waiting Metrics (when waiting) */}
+              {ticket.status === 'WAITING' && !isMyTurn && (
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-slate-50 rounded-2xl p-2.5">
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase">현재 호출</span>
+                      <span className="text-xl font-extrabold text-slate-800 mt-0.5 block">
+                        #{queue.currentServingNumber > 0 ? queue.currentServingNumber : 0}
+                      </span>
+                    </div>
+
+                    <div className="bg-brand-50 rounded-2xl p-2.5 border border-brand-100">
+                      <span className="text-[10px] font-bold text-brand-600 block uppercase">내 앞 대기</span>
+                      <span className="text-xl font-black text-brand-600 mt-0.5 block">
+                        {waitingAhead}팀
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-2xl p-2.5">
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase">내 뒤 대기</span>
+                      <span className="text-xl font-extrabold text-slate-700 mt-0.5 block">
+                        {waitingBehind}팀
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Expected Wait Time */}
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-brand-500" />
+                      예상 대기 시간
+                    </span>
+                    <span className="font-extrabold text-slate-800">
+                      {waitingAhead === 0 ? (
+                        <span className="text-brand-600">곧 입장 차례입니다</span>
+                      ) : (
+                        <span>
+                          약 <strong className="text-brand-600 text-sm">{expectedWaitMinutes}분</strong>
+                          <span className="text-[10px] text-slate-400 font-normal ml-1">
+                            (팀당 평균 {avgWaitTimeMinutes}분 소요)
+                          </span>
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Card B: Store Description Notice (if provided) */}
+              {queue.description && (
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <Store className="w-4 h-4 text-brand-500" />
+                    <span>매장 안내</span>
+                  </div>
+                  <p className="text-xs text-slate-600 whitespace-pre-wrap break-words leading-relaxed pl-5">
+                    {queue.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Card C: Calling Tips / Notification Guide */}
+              {ticket.status === 'WAITING' && (
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <BellRing className="w-4 h-4 text-brand-500" />
+                    <span>호출 안내</span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed pl-5">
+                    순번이 되면 진동과 알림 소리로 안내해 드립니다. 매장 근처에서 대기해 주시고, 알림이 울리면 직원에게 화면을 보여주세요.
+                  </p>
+                </div>
               )}
             </div>
-
-            {/* Waiting Ahead / Behind / Current Serving 3-box Grid */}
-            {ticket.status === 'WAITING' && !isMyTurn && (
-              <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
-                <div className="bg-slate-50 rounded-2xl p-2.5">
-                  <span className="text-[10px] font-bold text-slate-400 block uppercase">현재 호출</span>
-                  <span className="text-xl font-extrabold text-slate-800 mt-0.5 block">
-                    #{queue.currentServingNumber > 0 ? queue.currentServingNumber : 0}
-                  </span>
-                </div>
-
-                <div className="bg-brand-50 rounded-2xl p-2.5 border border-brand-100">
-                  <span className="text-[10px] font-bold text-brand-600 block uppercase">내 앞 대기</span>
-                  <span className="text-xl font-black text-brand-600 mt-0.5 block">
-                    {waitingAhead}팀
-                  </span>
-                </div>
-
-                <div className="bg-slate-50 rounded-2xl p-2.5">
-                  <span className="text-[10px] font-bold text-slate-400 block uppercase">내 뒤 대기</span>
-                  <span className="text-xl font-extrabold text-slate-700 mt-0.5 block">
-                    {waitingBehind}팀
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* N-3: Expected Wait Time Badge */}
-            {ticket.status === 'WAITING' && !isMyTurn && (
-              <div className="mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
-                <span className="text-slate-500 font-medium flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-brand-500" />
-                  예상 대기 시간
-                </span>
-                <span className="font-extrabold text-slate-800">
-                  {waitingAhead === 0 ? (
-                    <span className="text-brand-600">곧 입장 차례입니다</span>
-                  ) : (
-                    <span>
-                      약 <strong className="text-brand-600 text-sm">{expectedWaitMinutes}분</strong>
-                      <span className="text-[10px] text-slate-400 font-normal ml-1">
-                        (팀당 평균 {avgWaitTimeMinutes}분 소요)
-                      </span>
-                    </span>
-                  )}
-                </span>
-              </div>
-            )}
-          </Card>
-
-          {/* Helpful Tips / Notification Test */}
-          {ticket.status === 'WAITING' && (
-            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 text-xs text-slate-600 space-y-2">
-              <div className="flex items-center gap-2 font-bold text-slate-800">
-                <BellRing className="w-4 h-4 text-brand-500" />
-                호출 시 진동과 소리로 안내됩니다
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                매장 근처에서 대기해 주시고, 화면이 초록색으로 바뀌며 진동이 울리면 즉시 매장으로 입장해 주세요.
-              </p>
-            </div>
-          )}
-        </div>
+          </div>
 
         {/* Bottom Actions (Cancel Ticket) */}
         <div className="pt-6">
@@ -443,11 +460,13 @@ export const TicketDetail: React.FC = () => {
       </Modal>
 
       {/* iOS PWA Guide Modal */}
-      <PwaGuideModal
-        isOpen={isPwaModalOpen}
-        onClose={() => setIsPwaModalOpen(false)}
-        isInApp={deviceConfig?.isInApp ?? false}
-      />
+      {deviceConfig?.isIos && (
+        <PwaGuideModal
+          isOpen={isPwaModalOpen}
+          onClose={() => setIsPwaModalOpen(false)}
+          isInApp={deviceConfig?.isInApp ?? false}
+        />
+      )}
     </MobileContainer>
     </div>
   );
