@@ -79,13 +79,15 @@ describe('SupabaseQueueRepository Tests', () => {
       }),
     });
 
-    const ticket = await repo.issueTicket('q_123', 'guest@test.com');
+    const ticket = await repo.issueTicket('q_123', 'guest@test.com', 6);
     expect(mockSupabase.rpc).toHaveBeenCalledWith('issue_ticket_atomic', {
       p_queue_id: 'q_123',
       p_email: 'guest@test.com',
+      p_subscription: { party_size: 6 },
     });
     expect(ticket.id).toBe('t_existing');
     expect(ticket.ticketNumber).toBe(5);
+    expect(ticket.partySize).toBe(6);
     expect(ticket.isExisting).toBe(true);
   });
 

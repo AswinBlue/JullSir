@@ -401,9 +401,9 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Middle Row: Title with max size limitation & ellipsis */}
-          <div className="min-w-0">
+          <div className="w-full min-w-0 overflow-hidden">
             <h2 
-              className="text-lg font-black text-slate-900 line-clamp-2 break-all break-keep leading-snug"
+              className="text-lg font-black text-slate-900 line-clamp-2 break-all overflow-hidden [overflow-wrap:anywhere] leading-snug"
               title={queue.name}
             >
               {queue.name}
@@ -470,17 +470,18 @@ export const AdminDashboard: React.FC = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="flex flex-col gap-3">
             {/* Primary Large Call Button */}
             <Button
               variant="primary"
               size="xl"
+              fullWidth
               onClick={handleCallNext}
               disabled={calling || waitingCount === 0}
-              className="sm:col-span-2 shadow-lg shadow-brand-500/25 gap-2 text-base font-extrabold whitespace-nowrap break-keep"
+              className="shadow-lg shadow-brand-500/25 gap-2 text-base font-extrabold"
             >
-              <Megaphone className="w-5 h-5 shrink-0 animate-bounce" />
-              <span className="whitespace-nowrap break-keep">
+              <Megaphone className="w-5 h-5 shrink-0" />
+              <span>
                 {calling ? '호출 전송 중...' : '다음 번호 호출'}
               </span>
             </Button>
@@ -488,13 +489,15 @@ export const AdminDashboard: React.FC = () => {
             {/* Skip Button for Current Number */}
             <Button
               variant="outline"
-              size="lg"
+              size="md"
+              fullWidth
               disabled={!nextTicket}
               onClick={() => nextTicket && handleSkipTicket(nextTicket.id)}
-              className="gap-2 font-bold text-slate-700 hover:text-slate-900 whitespace-nowrap break-keep"
+              className="border-slate-300 text-slate-700 hover:bg-slate-100 gap-2 font-bold text-sm"
+              title="현재 대기 순번 건너뛰기"
             >
               <SkipForward className="w-4 h-4 text-slate-500 shrink-0" />
-              <span className="whitespace-nowrap break-keep">현재 번호 스킵</span>
+              <span>현재 번호 스킵</span>
             </Button>
           </div>
 

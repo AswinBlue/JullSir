@@ -26,6 +26,8 @@ import {
   Clock, 
   RefreshCw,
   BellRing,
+  BellOff,
+  Volume2,
   Smartphone,
   Store,
   Users
@@ -72,7 +74,11 @@ export const TicketDetail: React.FC = () => {
     });
   };
 
-  const handleDismissBuzzer = () => {
+  const handleDismissBuzzer = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     hasDismissedRef.current = true;
     pendingBuzzerRef.current = false;
     buzzerEngineRef.current.stop();
@@ -136,6 +142,7 @@ export const TicketDetail: React.FC = () => {
   useEffect(() => {
     const handleVisibilitySync = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        soundManager.unlockAudio();
         if (pendingBuzzerRef.current || (ticket?.status === 'CALLED' && !hasDismissedRef.current && !isBuzzerActive)) {
           pendingBuzzerRef.current = false;
           startBuzzer();
@@ -148,18 +155,23 @@ export const TicketDetail: React.FC = () => {
     };
   }, [ticket?.status, isBuzzerActive]);
 
-  // A-3: Pre-emptively unlock mobile AudioContext on first touch / click
+  // Pre-emptively unlock mobile AudioContext on first touch / click / scroll
   useEffect(() => {
-    const handleUnlock = () => {
+    const handleUserInteraction = () => {
       soundManager.unlockAudio();
+      if (ticket?.status === 'CALLED' && !hasDismissedRef.current && !soundManager.isBuzzerActive()) {
+        startBuzzer();
+      }
     };
-    window.addEventListener('click', handleUnlock, { once: true });
-    window.addEventListener('touchstart', handleUnlock, { once: true });
+    window.addEventListener('click', handleUserInteraction);
+    window.addEventListener('touchstart', handleUserInteraction);
+    window.addEventListener('pointerdown', handleUserInteraction);
     return () => {
-      window.removeEventListener('click', handleUnlock);
-      window.removeEventListener('touchstart', handleUnlock);
+      window.removeEventListener('click', handleUserInteraction);
+      window.removeEventListener('touchstart', handleUserInteraction);
+      window.removeEventListener('pointerdown', handleUserInteraction);
     };
-  }, []);
+  }, [ticket?.status]);
 
   // Trigger confetti when it's user's turn
   useEffect(() => {
@@ -239,37 +251,36 @@ export const TicketDetail: React.FC = () => {
 
         <main className="px-5 py-6 flex-1 flex flex-col justify-between">
           <div className="space-y-6">
-            {/* Buzzer Active Ringing Bar */}
-            {isBuzzerActive && (
-              <div className="p-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 text-slate-950 font-black rounded-3xl text-center shadow-2xl animate-pulse flex flex-col sm:flex-row items-center justify-between gap-3 border-2 border-white">
-                <div className="flex items-center gap-2.5 text-base">
-                  <BellRing className="w-6 h-6 animate-bounce text-slate-950" />
-                  <span className="font-extrabold tracking-tight">진동벨 호출 중! (소리 / 진동)</span>
-                </div>
-                <button
-                  onClick={handleDismissBuzzer}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-slate-950 text-white rounded-2xl text-sm font-black shadow-lg hover:bg-slate-900 active:scale-95 transition flex items-center justify-center gap-2"
-                >
-                  <span>🔔 알림 소리/진동 끄기 (확인)</span>
-                </button>
-              </div>
-            )}
-
             {/* Wake Lock Screen Alert Banner */}
             {ticket.status === 'WAITING' && (
-              <div className="p-3 bg-brand-50 border border-brand-200/70 rounded-2xl flex items-center justify-between text-xs text-brand-900 shadow-sm">
-                <span className="flex items-center gap-1.5 font-medium">
+              <div className="p-3.5 bg-brand-50 border border-brand-200/70 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-brand-900 shadow-sm">
+                <span className="flex items-center gap-1.5 font-medium flex-1">
                   <Smartphone className="w-4 h-4 text-brand-600 shrink-0" />
-                  이 브라우저 창을 켜두시면 차례가 되었을 때 진동과 벨소리로 알려드립니다 (화면 꺼짐 방지 적용 중)
+                  <span>이 브라우저 창을 켜두시면 차례가 되었을 때 진동과 벨소리로 알려드립니다 (화면 꺼짐 방지 적용 중)</span>
                 </span>
-                {deviceConfig?.isIos && (
+                <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => setIsPwaModalOpen(true)}
-                    className="text-[11px] text-brand-600 underline font-bold shrink-0 ml-2 whitespace-nowrap active:scale-95"
+                    type="button"
+                    onClick={() => {
+                      soundManager.unlockAudio();
+                      soundManager.playChime();
+                    }}
+                    className="px-2.5 py-1 bg-white hover:bg-brand-100 text-brand-700 font-bold rounded-lg border border-brand-200 shadow-xs flex items-center gap-1 active:scale-95 transition"
+                    title="진동벨 소리가 정상적으로 나오는지 확인합니다"
                   >
-                    화면 끄고 싶다면?
+                    <Volume2 className="w-3.5 h-3.5 text-brand-600" />
+                    <span>소리 테스트</span>
                   </button>
-                )}
+                  {deviceConfig?.isIos && (
+                    <button
+                      type="button"
+                      onClick={() => setIsPwaModalOpen(true)}
+                      className="text-[11px] text-brand-600 underline font-bold whitespace-nowrap active:scale-95"
+                    >
+                      화면 끄고 싶다면?
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -297,11 +308,12 @@ export const TicketDetail: React.FC = () => {
                 </p>
                 {isBuzzerActive ? (
                   <button
+                    type="button"
                     onClick={handleDismissBuzzer}
-                    className="mt-4 px-6 py-3 bg-white text-emerald-800 font-black rounded-2xl text-base shadow-xl hover:bg-emerald-50 active:scale-95 transition flex items-center justify-center gap-2 mx-auto animate-pulse"
+                    className="mt-4 px-6 py-3.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-2xl text-base shadow-xl active:scale-95 transition flex items-center justify-center gap-2 mx-auto animate-pulse"
                   >
-                    <BellRing className="w-5 h-5 text-emerald-600 animate-spin" />
-                    <span>🔔 알림 소리/진동 끄기 (확인)</span>
+                    <BellOff className="w-5 h-5 text-slate-950" />
+                    <span>알림 소리/진동 끄기 (확인)</span>
                   </button>
                 ) : (
                   <div className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/20 text-white text-xs font-bold">

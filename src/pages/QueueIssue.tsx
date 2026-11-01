@@ -38,6 +38,7 @@ export const QueueIssue: React.FC = () => {
 
   const handleIssueTicket = async (e: React.FormEvent) => {
     e.preventDefault();
+    soundManager.unlockAudio();
     if (!queueId) return;
 
     if (summary?.queue.isClosed) {
@@ -173,7 +174,10 @@ export const QueueIssue: React.FC = () => {
                   <div className="flex items-center justify-center gap-3">
                     <button
                       type="button"
-                      onClick={() => setPartySize(prev => Math.max(1, prev - 1))}
+                      onClick={() => {
+                        soundManager.unlockAudio();
+                        setPartySize(prev => Math.max(1, prev - 1));
+                      }}
                       className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-lg flex items-center justify-center hover:bg-slate-100 active:scale-95 transition shadow-sm"
                     >
                       -
@@ -183,7 +187,10 @@ export const QueueIssue: React.FC = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setPartySize(prev => Math.min(99, prev + 1))}
+                      onClick={() => {
+                        soundManager.unlockAudio();
+                        setPartySize(prev => Math.min(99, prev + 1));
+                      }}
                       className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-lg flex items-center justify-center hover:bg-slate-100 active:scale-95 transition shadow-sm"
                     >
                       +
@@ -196,14 +203,17 @@ export const QueueIssue: React.FC = () => {
                       <button
                         key={num}
                         type="button"
-                        onClick={() => setPartySize(num)}
+                        onClick={() => {
+                          soundManager.unlockAudio();
+                          setPartySize(num);
+                        }}
                         className={`py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
                           partySize === num
                             ? 'bg-brand-500 text-white shadow-md shadow-brand-500/20'
                             : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                       >
-                        {num === 5 ? '5명+' : `${num}명`}
+                        {`${num}명`}
                       </button>
                     ))}
                   </div>

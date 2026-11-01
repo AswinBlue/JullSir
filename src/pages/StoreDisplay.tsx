@@ -293,7 +293,7 @@ export const StoreDisplay: React.FC = () => {
                         : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                     }`}
                   >
-                    {num === 5 ? '5명+' : `${num}명`}
+                    {`${num}명`}
                   </button>
                 ))}
               </div>

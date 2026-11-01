@@ -47,11 +47,13 @@ function mapDbQueue(db: DbQueue): Queue {
 }
 
 function mapDbTicket(db: DbTicket, isExisting?: boolean): Ticket {
+  const sub = db.push_subscription as any;
+  const parsedPartySize = db.party_size || sub?.party_size;
   return {
     id: db.id,
     queueId: db.queue_id,
     ticketNumber: db.ticket_number,
-    partySize: db.party_size || 1,
+    partySize: typeof parsedPartySize === 'number' && parsedPartySize > 0 ? parsedPartySize : 1,
     email: db.email || undefined,
     pushSubscription: db.push_subscription || undefined,
     status: db.status,
@@ -309,9 +311,11 @@ export class SupabaseQueueRepository implements IQueueRepository {
     const finalEmail = trimmedEmail || `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}@anonymous.local`;
 
     // Call atomic RPC function in PostgreSQL
+    const subscriptionPayload = { party_size: partySize };
     const { data, error } = await this.client.rpc('issue_ticket_atomic', {
       p_queue_id: queueId,
       p_email: finalEmail,
+      p_subscription: subscriptionPayload,
     });
 
     if (error || !data || data.length === 0) {
@@ -322,11 +326,22 @@ export class SupabaseQueueRepository implements IQueueRepository {
     const ticketId = rpcResult.new_ticket_id;
     const isExisting = rpcResult.is_existing;
 
+    // Ensure push_subscription metadata is persisted with party_size
+    try {
+      await this.client
+        .from('tickets')
+        .update({ push_subscription: subscriptionPayload })
+        .eq('id', ticketId);
+    } catch {
+      // ignore
+    }
+
     const ticket = await this.getTicket(ticketId);
     if (!ticket) {
       throw new Error('발급된 티켓 조회에 실패했습니다.');
     }
 
+    ticket.partySize = partySize;
     ticket.isExisting = isExisting;
     return ticket;
   }
