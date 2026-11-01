@@ -21,6 +21,7 @@ export const QueueIssue: React.FC = () => {
 
   const [issuing, setIssuing] = useState(false);
   const [issueError, setIssueError] = useState('');
+  const [partySize, setPartySize] = useState<number>(2);
 
   // A-3: Pre-emptively unlock mobile AudioContext on first touch / click
   useEffect(() => {
@@ -48,7 +49,7 @@ export const QueueIssue: React.FC = () => {
     setIssuing(true);
 
     try {
-      const ticket = await queueRepository.issueTicket(queueId);
+      const ticket = await queueRepository.issueTicket(queueId, partySize);
 
       // Save ticket id to local storage for quick access
       localStorage.setItem(`jullsir_my_ticket_${queueId}`, ticket.id);
@@ -106,9 +107,11 @@ export const QueueIssue: React.FC = () => {
             </h2>
 
             {queue.description ? (
-              <div className="mt-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-600 text-left flex items-start gap-2 leading-relaxed whitespace-pre-wrap break-words">
+              <div className="mt-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-600 text-left flex items-start gap-2 leading-relaxed">
                 <Info className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
-                <span>{queue.description}</span>
+                <div className="max-h-32 overflow-y-auto flex-1 whitespace-pre-wrap break-words">
+                  {queue.description}
+                </div>
               </div>
             ) : (
               <p className="text-xs text-slate-400 mt-1">순번이 되면 화면과 알림으로 안내해 드립니다.</p>
@@ -145,7 +148,7 @@ export const QueueIssue: React.FC = () => {
                   대기 번호표 발급
                 </h3>
                 <p className="text-xs text-slate-500">
-                  버튼을 누르면 바로 대기 번호표가 발급됩니다.
+                  인원수를 선택하고 버튼을 누르면 순번표가 발급됩니다.
                 </p>
               </div>
 
@@ -156,6 +159,56 @@ export const QueueIssue: React.FC = () => {
               )}
 
               <form onSubmit={handleIssueTicket} className="space-y-4">
+                {/* Party Size Selector */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-brand-600" />
+                      방문 / 대기 인원
+                    </span>
+                    <span className="text-sm font-black text-brand-600">{partySize}명</span>
+                  </div>
+
+                  {/* Stepper */}
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPartySize(prev => Math.max(1, prev - 1))}
+                      className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-lg flex items-center justify-center hover:bg-slate-100 active:scale-95 transition shadow-sm"
+                    >
+                      -
+                    </button>
+                    <div className="px-6 py-2 bg-white rounded-xl border border-brand-200 text-xl font-black text-slate-900 min-w-[80px] text-center shadow-inner">
+                      {partySize}명
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPartySize(prev => Math.min(99, prev + 1))}
+                      className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-lg flex items-center justify-center hover:bg-slate-100 active:scale-95 transition shadow-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* Quick Select Presets */}
+                  <div className="grid grid-cols-5 gap-1.5 pt-1">
+                    {[1, 2, 3, 4, 5].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setPartySize(num)}
+                        className={`py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                          partySize === num
+                            ? 'bg-brand-500 text-white shadow-md shadow-brand-500/20'
+                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {num === 5 ? '5명+' : `${num}명`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <Button
                   type="submit"
                   variant="primary"
@@ -165,7 +218,7 @@ export const QueueIssue: React.FC = () => {
                   className="font-extrabold text-base shadow-lg shadow-brand-500/25 mt-2 gap-2"
                 >
                   <Ticket className="w-5 h-5" />
-                  {issuing ? '순번표 발급 중...' : '대기 번호표 뽑기'}
+                  {issuing ? '순번표 발급 중...' : `${partySize}명 대기 번호표 뽑기`}
                 </Button>
               </form>
             </Card>

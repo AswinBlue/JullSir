@@ -305,4 +305,37 @@ describe('0-Cost Device-Specific Notification & Buzzer Alert Test Suite', () => 
     expect(fetchedT2?.status).toBe('WAITING');
     expect(isBypassedTicket(fetchedT2?.status, fetchedT2?.ticketNumber, summary!.queue.currentServingNumber)).toBe(true);
   });
+
+  /**
+   * @test {TST26110110}
+   * @description 대기표 발권 시 방문 인원 수(partySize) 저장 및 조회 검증
+   * @precondition MockQueueRepository를 통해 대기열이 생성된 상태
+   * @steps
+   * 1. issueTicket(queueId, 4)로 4명 티켓 발권
+   * 2. issueTicket(queueId, 1)로 1명 티켓 발권
+   * 3. getTicket으로 조회하여 partySize 필드 일치 확인
+   * @expected 발권 시 전달한 partySize가 그대로 티켓에 저장되고 조회된다.
+   * @prd {PRD26103100}
+   * @sds {SDS26110100}
+   * @func {mockQueueRepository.issueTicket}
+   * @seq {SQ1-01}
+   * @state {TR-00}
+   * @err {None}
+   */
+  it('[TST26110110] should issue ticket with specified party size and retrieve correctly', async () => {
+    const repo = new MockQueueRepository();
+    const queue = await repo.createQueue('인원수 테스트 매장');
+
+    const t1 = await repo.issueTicket(queue.id, 4);
+    expect(t1.partySize).toBe(4);
+
+    const t2 = await repo.issueTicket(queue.id, 1);
+    expect(t2.partySize).toBe(1);
+
+    const fetchedT1 = await repo.getTicket(t1.id);
+    expect(fetchedT1?.partySize).toBe(4);
+
+    const fetchedT2 = await repo.getTicket(t2.id);
+    expect(fetchedT2?.partySize).toBe(1);
+  });
 });

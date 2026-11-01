@@ -278,7 +278,7 @@ export class MockQueueRepository implements IQueueRepository {
 
   // --- Ticket Operations ---
 
-  public async issueTicket(queueId: string, email?: string): Promise<Ticket> {
+  public async issueTicket(queueId: string, partySizeOrEmail?: number | string, partySizeParam?: number): Promise<Ticket> {
     const queues = this.getQueues();
     const queue = queues[queueId];
 
@@ -288,6 +288,22 @@ export class MockQueueRepository implements IQueueRepository {
 
     if (queue.isClosed) {
       throw new Error('현재 대기열 접수가 마감되었습니다.');
+    }
+
+    let partySize = 2; // Default party size
+    let email: string | undefined = undefined;
+
+    if (typeof partySizeOrEmail === 'number') {
+      partySize = partySizeOrEmail;
+    } else if (typeof partySizeOrEmail === 'string') {
+      email = partySizeOrEmail;
+      if (typeof partySizeParam === 'number') {
+        partySize = partySizeParam;
+      }
+    }
+
+    if (partySize < 1 || partySize > 99 || !Number.isInteger(partySize)) {
+      partySize = Math.min(Math.max(1, Math.round(partySize) || 1), 99);
     }
 
     let trimmedEmail: string | undefined = undefined;
@@ -322,6 +338,7 @@ export class MockQueueRepository implements IQueueRepository {
       id: ticketId,
       queueId,
       ticketNumber: nextTicketNumber,
+      partySize,
       email: trimmedEmail || undefined,
       status: 'WAITING',
       createdAt: new Date().toISOString()

@@ -22,6 +22,7 @@ interface DbTicket {
   id: string;
   queue_id: string;
   ticket_number: number;
+  party_size?: number | null;
   email: string | null;
   push_subscription: PushSubscriptionData | null;
   status: TicketStatus;
@@ -50,6 +51,7 @@ function mapDbTicket(db: DbTicket, isExisting?: boolean): Ticket {
     id: db.id,
     queueId: db.queue_id,
     ticketNumber: db.ticket_number,
+    partySize: db.party_size || 1,
     email: db.email || undefined,
     pushSubscription: db.push_subscription || undefined,
     status: db.status,
@@ -280,7 +282,23 @@ export class SupabaseQueueRepository implements IQueueRepository {
 
   // --- Ticket Operations ---
 
-  public async issueTicket(queueId: string, email?: string): Promise<Ticket> {
+  public async issueTicket(queueId: string, partySizeOrEmail?: number | string, partySizeParam?: number): Promise<Ticket> {
+    let partySize = 2;
+    let email: string | undefined = undefined;
+
+    if (typeof partySizeOrEmail === 'number') {
+      partySize = partySizeOrEmail;
+    } else if (typeof partySizeOrEmail === 'string') {
+      email = partySizeOrEmail;
+      if (typeof partySizeParam === 'number') {
+        partySize = partySizeParam;
+      }
+    }
+
+    if (partySize < 1 || partySize > 99 || !Number.isInteger(partySize)) {
+      partySize = Math.min(Math.max(1, Math.round(partySize) || 1), 99);
+    }
+
     const trimmedEmail = email?.trim() || '';
     if (trimmedEmail) {
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;

@@ -28,6 +28,7 @@ export interface Ticket {
   id: string;
   queueId: string;
   ticketNumber: number;
+  partySize?: number; // 방문 / 대기 동행 인원 수 (1~99명)
   email?: string;
   pushSubscription?: PushSubscriptionData;
   status: TicketStatus;

@@ -1,6 +1,9 @@
 // Web Audio API based harmonic chime sound synthesizer
 class SoundManager {
   private audioCtx: AudioContext | null = null;
+  private buzzerTimerId: NodeJS.Timeout | null = null;
+  private buzzerIntervalId: NodeJS.Timeout | null = null;
+  private isBuzzerRunning: boolean = false;
 
   private getAudioContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -91,6 +94,57 @@ class SoundManager {
     } catch {
       // ignore
     }
+  }
+
+  // 1-minute safety buzzer alarm loop (harmonic chime + vibration)
+  public startBuzzerLoop(onTimeout?: () => void): () => void {
+    if (this.isBuzzerRunning) return this.stopBuzzerLoop.bind(this);
+    this.isBuzzerRunning = true;
+
+    // Immediately trigger chime and vibration
+    this.playChime();
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try { navigator.vibrate([400, 200, 400]); } catch {}
+    }
+
+    // Interval every 2.2 seconds
+    this.buzzerIntervalId = setInterval(() => {
+      if (!this.isBuzzerRunning) return;
+      this.playChime();
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try { navigator.vibrate([400, 200, 400]); } catch {}
+      }
+    }, 2200);
+
+    // Auto-timeout after 60 seconds
+    this.buzzerTimerId = setTimeout(() => {
+      this.stopBuzzerLoop();
+      if (onTimeout) onTimeout();
+    }, 60000);
+
+    return this.stopBuzzerLoop.bind(this);
+  }
+
+  // Stop buzzer alarm loop immediately
+  public stopBuzzerLoop(): void {
+    if (!this.isBuzzerRunning) return;
+    this.isBuzzerRunning = false;
+
+    if (this.buzzerTimerId) {
+      clearTimeout(this.buzzerTimerId);
+      this.buzzerTimerId = null;
+    }
+    if (this.buzzerIntervalId) {
+      clearInterval(this.buzzerIntervalId);
+      this.buzzerIntervalId = null;
+    }
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try { navigator.vibrate(0); } catch {}
+    }
+  }
+
+  public isBuzzerActive(): boolean {
+    return this.isBuzzerRunning;
   }
 }
 

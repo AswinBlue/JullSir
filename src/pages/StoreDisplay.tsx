@@ -29,6 +29,7 @@ export const StoreDisplay: React.FC = () => {
   const [issuedTicket, setIssuedTicket] = useState<Ticket | null>(null);
   const [issuedTicketQrUrl, setIssuedTicketQrUrl] = useState<string>('');
   const [inputError, setInputError] = useState('');
+  const [partySize, setPartySize] = useState<number>(2);
 
   // Mobile queue issue URL (for QR code)
   const baseUrl = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -75,7 +76,7 @@ export const StoreDisplay: React.FC = () => {
     setIssuing(true);
 
     try {
-      const ticket = await queueRepository.issueTicket(queueId);
+      const ticket = await queueRepository.issueTicket(queueId, partySize);
       setIssuedTicket(ticket);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '대기 번호표 발급에 실패했습니다.';
@@ -156,9 +157,11 @@ export const StoreDisplay: React.FC = () => {
 
           {/* Description Section */}
           {queue.description ? (
-            <div className="mt-3 p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 text-xs text-slate-300 leading-relaxed text-left flex items-start gap-2 whitespace-pre-wrap break-words">
+            <div className="mt-3 p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 text-xs text-slate-300 leading-relaxed text-left flex items-start gap-2">
               <Info className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
-              <span>{queue.description}</span>
+              <div className="max-h-32 overflow-y-auto flex-1 whitespace-pre-wrap break-words">
+                {queue.description}
+              </div>
             </div>
           ) : (
             <p className="text-xs text-slate-500 mt-1.5">
@@ -246,6 +249,56 @@ export const StoreDisplay: React.FC = () => {
           )}
 
           <form onSubmit={handleDirectIssue} className="space-y-3">
+            {/* Party Size Selector */}
+            <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-brand-400" />
+                  방문 / 대기 인원
+                </span>
+                <span className="text-brand-400 font-extrabold">{partySize}명</span>
+              </div>
+
+              {/* Stepper */}
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPartySize(prev => Math.max(1, prev - 1))}
+                  className="w-9 h-9 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-black text-lg flex items-center justify-center active:scale-95 transition"
+                >
+                  -
+                </button>
+                <div className="px-5 py-1.5 bg-slate-900 rounded-xl border border-slate-700 text-lg font-black text-white min-w-[70px] text-center">
+                  {partySize}명
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPartySize(prev => Math.min(99, prev + 1))}
+                  className="w-9 h-9 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-black text-lg flex items-center justify-center active:scale-95 transition"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Quick Select Presets */}
+              <div className="grid grid-cols-5 gap-1.5">
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => setPartySize(num)}
+                    className={`py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                      partySize === num
+                        ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30'
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
+                  >
+                    {num === 5 ? '5명+' : `${num}명`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <Button
               type="submit"
               variant="primary"
@@ -259,7 +312,7 @@ export const StoreDisplay: React.FC = () => {
                 ? '접수 마감됨' 
                 : issuing 
                 ? '발급 처리 중...' 
-                : '대기 번호표 뽑기'}
+                : `${partySize}명 대기 번호표 뽑기`}
             </Button>
           </form>
         </div>
@@ -288,6 +341,12 @@ export const StoreDisplay: React.FC = () => {
               </span>
               <div className="text-5xl font-black text-slate-900 mt-1">
                 #{issuedTicket.ticketNumber}번
+              </div>
+              <div className="mt-1">
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 inline-flex items-center gap-1">
+                  <Users className="w-3 h-3 text-slate-500" />
+                  {issuedTicket.partySize || partySize}명
+                </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
                 차례가 되면 스마트폰 화면과 알림으로 안내해 드립니다.

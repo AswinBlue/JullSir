@@ -5,6 +5,8 @@
  * @prd {PRD26103100, PRD26103101, PRD26103102, PRD26103103, PRD26103104, PRD26110105}
  */
 
+import { soundManager } from '../utils/sound';
+
 export interface DeviceNotificationConfig {
   isAndroid: boolean;
   isIos: boolean;
@@ -140,115 +142,26 @@ export async function requestScreenWakeLock(): Promise<boolean> {
  * @description 1분 제한 진동벨(Web Audio 경보음 + 진동 루프) 재생 엔진
  */
 export class BuzzerAlertEngine {
-  private timerId: NodeJS.Timeout | null = null;
-  private chimeIntervalId: NodeJS.Timeout | null = null;
-  private running: boolean = false;
-  private audioCtx: AudioContext | null = null;
-
   /**
    * 진동벨 알람 가동
    * @param {() => void} [onTimeout] - 60초 만료 시 실행할 콜백
    * @returns {() => void} 즉시 중단 함수 (stop)
    */
   public startBuzzerAlarm(onTimeout?: () => void): () => void {
-    if (this.running) return this.stop.bind(this);
-    this.running = true;
-
-    this.startChimeLoop();
-    this.startVibrationLoop();
-
-    // 최대 60초(1분) 안전 타이머 가동
-    this.timerId = setTimeout(() => {
-      this.stop();
-      if (onTimeout) onTimeout();
-    }, 60000);
-
-    return this.stop.bind(this);
+    return soundManager.startBuzzerLoop(onTimeout);
   }
 
   /**
    * 진동벨 즉시 중단
    */
   public stop(): void {
-    if (!this.running) return;
-    this.running = false;
-
-    if (this.timerId) {
-      clearTimeout(this.timerId);
-      this.timerId = null;
-    }
-
-    if (this.chimeIntervalId) {
-      clearInterval(this.chimeIntervalId);
-      this.chimeIntervalId = null;
-    }
-
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(0);
-    }
-
-    if (this.audioCtx) {
-      try {
-        this.audioCtx.close();
-      } catch {
-        // ignore
-      }
-      this.audioCtx = null;
-    }
+    soundManager.stopBuzzerLoop();
   }
 
   /**
    * 현재 진동벨 가동 여부
    */
   public isActive(): boolean {
-    return this.running;
-  }
-
-  private startChimeLoop(): void {
-    this.playTone();
-    this.chimeIntervalId = setInterval(() => {
-      if (!this.running) return;
-      this.playTone();
-    }, 1500);
-  }
-
-  private playTone(): void {
-    try {
-      if (typeof window === 'undefined') return;
-      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextClass) return;
-
-      if (!this.audioCtx || this.audioCtx.state === 'closed') {
-        this.audioCtx = new AudioContextClass();
-      }
-
-      if (this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume();
-      }
-
-      const osc = this.audioCtx.createOscillator();
-      const gain = this.audioCtx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, this.audioCtx.currentTime); // A5
-      osc.frequency.exponentialRampToValueAtTime(440, this.audioCtx.currentTime + 0.3); // drop to A4
-
-      gain.gain.setValueAtTime(0.3, this.audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.4);
-
-      osc.connect(gain);
-      gain.connect(this.audioCtx.destination);
-
-      osc.start();
-      osc.stop(this.audioCtx.currentTime + 0.4);
-    } catch {
-      // Audio not permitted or running in test/mock environment
-    }
-  }
-
-  private startVibrationLoop(): void {
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate([500, 250, 500, 250]);
-    }
+    return soundManager.isBuzzerActive();
   }
 }

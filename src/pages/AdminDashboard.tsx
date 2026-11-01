@@ -293,23 +293,23 @@ export const AdminDashboard: React.FC = () => {
         showBack
         backTo="/"
         rightElement={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
             <button
               onClick={() => setIsQrModalOpen(true)}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-95 transition-all flex items-center gap-1 text-xs font-bold"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-95 transition-all flex items-center gap-1 text-xs font-bold whitespace-nowrap shrink-0 border border-slate-200"
               title="현장용 QR 코드"
             >
-              <QrCode className="w-4 h-4 text-brand-600" />
-              <span className="hidden sm:inline">QR 코드</span>
+              <QrCode className="w-3.5 h-3.5 text-slate-600" />
+              <span>QR 코드</span>
             </button>
             <button
               onClick={() => window.open(displayUrl, '_blank')}
-              className="p-2 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-700 active:scale-95 transition-all flex items-center gap-1 text-xs font-bold"
+              className="px-2.5 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-700 active:scale-95 transition-all flex items-center gap-1 text-xs font-bold whitespace-nowrap shrink-0 border border-brand-200"
               title="손님용 디스플레이 열기"
             >
-              <Monitor className="w-4 h-4 text-brand-600" />
-              <span className="hidden sm:inline">손님용 화면</span>
-              <ExternalLink className="w-3 h-3" />
+              <Monitor className="w-3.5 h-3.5 text-brand-600" />
+              <span>손님용 화면</span>
+              <ExternalLink className="w-3 h-3 opacity-70" />
             </button>
           </div>
         }
@@ -360,50 +360,64 @@ export const AdminDashboard: React.FC = () => {
         )}
 
         {/* Title & Info Card (with Edit Button) */}
-        <Card className="p-4 bg-white border border-slate-200 shadow-sm flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full bg-slate-900 text-white text-[10px] font-extrabold uppercase tracking-wide">
+        <Card className="p-4 bg-white border border-slate-200 shadow-sm space-y-2.5">
+          {/* Top Row: Badges and Action Buttons */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="px-2 py-0.5 rounded-full bg-slate-900 text-white text-[10px] font-extrabold uppercase tracking-wide shrink-0">
                 Admin Host
               </span>
-              <h2 className="text-lg font-extrabold text-slate-900">{queue.name}</h2>
               {queue.isClosed ? (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 flex items-center gap-1">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 flex items-center gap-1 shrink-0 whitespace-nowrap">
                   <Lock className="w-3 h-3" /> 마감됨
                 </span>
               ) : (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-1 shrink-0 whitespace-nowrap">
                   <Unlock className="w-3 h-3" /> 접수 중
                 </span>
               )}
             </div>
-            {queue.description ? (
-              <p className="text-xs text-slate-600 whitespace-pre-wrap break-words leading-relaxed mt-1">{queue.description}</p>
-            ) : (
-              <p className="text-xs text-slate-400 italic mt-1">등록된 손님 안내사항이 없습니다.</p>
-            )}
+
+            <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+              <button
+                onClick={() => setIsEditModalOpen(true)}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-colors whitespace-nowrap"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>수정</span>
+              </button>
+              <button
+                onClick={handleToggleStatus}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors whitespace-nowrap ${
+                  queue.isClosed 
+                    ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800' 
+                    : 'bg-rose-100 hover:bg-rose-200 text-rose-800'
+                }`}
+              >
+                {queue.isClosed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                <span>{queue.isClosed ? '접수 재개' : '접수 마감'}</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setIsEditModalOpen(true)}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-colors"
+          {/* Middle Row: Title with max size limitation & ellipsis */}
+          <div className="min-w-0">
+            <h2 
+              className="text-lg font-black text-slate-900 line-clamp-2 break-all break-keep leading-snug"
+              title={queue.name}
             >
-              <Edit3 className="w-3.5 h-3.5" />
-              수정
-            </button>
-            <button
-              onClick={handleToggleStatus}
-              className={`p-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors ${
-                queue.isClosed 
-                  ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800' 
-                  : 'bg-rose-100 hover:bg-rose-200 text-rose-800'
-              }`}
-            >
-              {queue.isClosed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-              {queue.isClosed ? '접수 재개' : '접수 마감'}
-            </button>
+              {queue.name}
+            </h2>
           </div>
+
+          {/* Bottom Row: Description with max height and scrollable textbox */}
+          {queue.description ? (
+            <div className="max-h-28 overflow-y-auto p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-600 whitespace-pre-wrap break-words leading-relaxed">
+              {queue.description}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 italic">등록된 손님 안내사항이 없습니다.</p>
+          )}
         </Card>
 
         {/* Live Metric Stats Cards */}
@@ -439,7 +453,10 @@ export const AdminDashboard: React.FC = () => {
               </span>
               <h3 className="text-lg font-black text-slate-900">
                 다음 대기 순번: {nextTicket ? (
-                  <span className="text-brand-500 font-black">#{nextTicket.ticketNumber}번</span>
+                  <span className="text-brand-500 font-black">
+                    #{nextTicket.ticketNumber}번
+                    <span className="text-sm font-bold text-slate-500 ml-1.5">({nextTicket.partySize || 1}명)</span>
+                  </span>
                 ) : (
                   <span className="text-slate-400 text-sm font-medium">대기자 없음</span>
                 )}
@@ -460,10 +477,12 @@ export const AdminDashboard: React.FC = () => {
               size="xl"
               onClick={handleCallNext}
               disabled={calling || waitingCount === 0}
-              className="sm:col-span-2 shadow-lg shadow-brand-500/25 gap-2 text-base font-extrabold"
+              className="sm:col-span-2 shadow-lg shadow-brand-500/25 gap-2 text-base font-extrabold whitespace-nowrap break-keep"
             >
-              <Megaphone className="w-5 h-5 animate-bounce" />
-              {calling ? '호출 전송 중...' : '다음 번호 부르기 (Call Next)'}
+              <Megaphone className="w-5 h-5 shrink-0 animate-bounce" />
+              <span className="whitespace-nowrap break-keep">
+                {calling ? '호출 전송 중...' : '다음 번호 호출'}
+              </span>
             </Button>
 
             {/* Skip Button for Current Number */}
@@ -472,17 +491,17 @@ export const AdminDashboard: React.FC = () => {
               size="lg"
               disabled={!nextTicket}
               onClick={() => nextTicket && handleSkipTicket(nextTicket.id)}
-              className="gap-2 font-bold text-slate-700 hover:text-slate-900"
+              className="gap-2 font-bold text-slate-700 hover:text-slate-900 whitespace-nowrap break-keep"
             >
-              <SkipForward className="w-4 h-4 text-slate-500" />
-              현재 번호 스킵
+              <SkipForward className="w-4 h-4 text-slate-500 shrink-0" />
+              <span className="whitespace-nowrap break-keep">현재 번호 스킵</span>
             </Button>
           </div>
 
           {/* N-2: 현재 번호 재호출 (다시 알림) */}
           {queue.currentServingNumber > 0 && (
             <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs text-slate-500 font-medium">
+              <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
                 현재 호출 중인 번호: <strong className="text-slate-900">#{queue.currentServingNumber}번</strong>
               </span>
               <Button
@@ -490,10 +509,10 @@ export const AdminDashboard: React.FC = () => {
                 size="sm"
                 disabled={recalling}
                 onClick={handleRecallCurrent}
-                className="gap-1.5 font-bold text-brand-600 border-brand-200 hover:bg-brand-50 text-xs"
+                className="gap-1.5 font-bold text-brand-600 border-brand-200 hover:bg-brand-50 text-xs whitespace-nowrap shrink-0"
               >
-                <BellRing className="w-3.5 h-3.5 text-brand-600 animate-pulse" />
-                {recalling ? '호출 중...' : '재호출 (다시 알림)'}
+                <BellRing className="w-3.5 h-3.5 text-brand-600 animate-pulse shrink-0" />
+                <span className="whitespace-nowrap">{recalling ? '호출 중...' : '재호출 (다시 알림)'}</span>
               </Button>
             </div>
           )}
@@ -544,6 +563,9 @@ export const AdminDashboard: React.FC = () => {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <Badge status={t.status} />
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                          {t.partySize || 1}명
+                        </span>
                       </div>
                       <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">
                         접수: {new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
