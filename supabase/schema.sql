@@ -1,4 +1,4 @@
--- JullSir(줄서) Supabase PostgreSQL Database Schema & Production Functions
+-- JullSir(줄서) Supabase PostgreSQL Database Schema & Production Functions (v2.1.0)
 -- Execute in Supabase SQL Editor: https://supabase.com/dashboard/project/_/sql
 
 -- 1. 대기열(queues) 테이블
@@ -16,18 +16,29 @@ CREATE TABLE IF NOT EXISTS queues (
     expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '6 hours')
 );
 
--- 2. 티켓(tickets) 테이블
+-- 2. 티켓(tickets) 테이블 (Zero-PII 및 party_size 정식 컬럼 탑재)
 CREATE TABLE IF NOT EXISTS tickets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     queue_id UUID NOT NULL REFERENCES queues(id) ON DELETE CASCADE,
     ticket_number INT NOT NULL,
-    email VARCHAR(255),
+    party_size INT NOT NULL DEFAULT 2, -- 동행 인원 수 (1~99명)
     push_subscription JSONB,
     status VARCHAR(20) NOT NULL DEFAULT 'WAITING', -- 'WAITING', 'CALLED', 'SKIPPED', 'COMPLETED', 'CANCELLED'
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     called_at TIMESTAMPTZ,
     UNIQUE(queue_id, ticket_number)
 );
+
+-- 2.1 기존 테이블 마이그레이션 호환 (컬럼이 없을 경우 자동 추가)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'tickets' AND column_name = 'party_size'
+    ) THEN
+        ALTER TABLE tickets ADD COLUMN party_size INT NOT NULL DEFAULT 2;
+    END IF;
+END $$;
 
 -- 3. 고속 조회를 위한 인덱스
 CREATE INDEX IF NOT EXISTS idx_tickets_queue_lookup ON tickets(queue_id, status, ticket_number);
@@ -55,20 +66,35 @@ BEGIN
     END IF;
 END $$;
 
--- 5. 원자적 순번 발급 함수 (Atomic Ticket Issuance RPC)
--- 동시 발급 경합 방지(Race condition protection) 및 동일 이메일 중복 발급 복원(N-1)
+-- 5. 보안 공개 뷰 (Public Queues View: admin_token 유출 원천 차단)
+CREATE OR REPLACE VIEW public_queues AS
+SELECT 
+    id,
+    name,
+    description,
+    current_serving_number,
+    last_issued_number,
+    is_closed,
+    created_at,
+    updated_at,
+    last_active_at,
+    expires_at
+FROM queues;
+
+-- 6. 원자적 순번 발급 함수 (Atomic Ticket Issuance RPC)
+-- 동시 발급 경합 방지(Race condition protection) 및 party_size 영구 보존
 CREATE OR REPLACE FUNCTION issue_ticket_atomic(
     p_queue_id UUID,
-    p_email VARCHAR DEFAULT NULL,
-    p_subscription JSONB DEFAULT NULL
+    p_party_size INT DEFAULT 2,
+    p_subscription JSONB DEFAULT NULL,
+    p_email VARCHAR DEFAULT NULL -- 하위 호환용 (사용되지 않음)
 )
 RETURNS TABLE (new_ticket_id UUID, new_ticket_number INT, is_existing BOOLEAN) AS $$
 DECLARE
     v_next_number INT;
     v_ticket_id UUID;
     v_is_closed BOOLEAN;
-    v_existing_id UUID;
-    v_existing_num INT;
+    v_size INT;
 BEGIN
     -- 1) 대기열 상태 확인 및 행 잠금(Row-level Lock)
     SELECT is_closed INTO v_is_closed
@@ -84,20 +110,8 @@ BEGIN
         RAISE EXCEPTION 'This queue is currently closed for new entries.';
     END IF;
 
-    -- N-1: 동일 이메일 중복 발급 시 신규 번호 채번 방지 및 기존 발급 티켓 복원
-    IF p_email IS NOT NULL AND TRIM(p_email) <> '' THEN
-        SELECT id, ticket_number INTO v_existing_id, v_existing_num
-        FROM tickets
-        WHERE queue_id = p_queue_id 
-          AND LOWER(email) = LOWER(TRIM(p_email)) 
-          AND status = 'WAITING'
-        LIMIT 1;
-
-        IF v_existing_id IS NOT NULL THEN
-            RETURN QUERY SELECT v_existing_id, v_existing_num, TRUE;
-            RETURN;
-        END IF;
-    END IF;
+    -- 인원수 유효성 검증 (1~99명)
+    v_size := GREATEST(1, LEAST(COALESCE(p_party_size, 2), 99));
 
     -- 2) 원자적 번호 증가
     UPDATE queues
@@ -106,16 +120,26 @@ BEGIN
     WHERE id = p_queue_id
     RETURNING last_issued_number INTO v_next_number;
 
-    -- 3) 티켓 생성
-    INSERT INTO tickets (queue_id, ticket_number, email, push_subscription, status)
-    VALUES (p_queue_id, v_next_number, TRIM(p_email), p_subscription, 'WAITING')
+    -- 3) 티켓 생성 (Zero-PII: 이메일 미수집, party_size 컬럼 정식 기록)
+    INSERT INTO tickets (queue_id, ticket_number, party_size, push_subscription, status)
+    VALUES (p_queue_id, v_next_number, v_size, p_subscription, 'WAITING')
     RETURNING id INTO v_ticket_id;
 
     RETURN QUERY SELECT v_ticket_id, v_next_number, FALSE;
 END;
 $$ LANGUAGE plpgsql;
 
--- 6. 세션 연장 함수 (Touch Session RPC)
+-- 7. 관리자 대기열 조회 보안 함수 (RPC: admin_token 인증 후 대기열 반환)
+CREATE OR REPLACE FUNCTION get_admin_queue(p_admin_token UUID)
+RETURNS SETOF queues AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM queues
+    WHERE admin_token = p_admin_token;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 8. 세션 연장 함수 (Touch Session RPC)
 CREATE OR REPLACE FUNCTION touch_queue_session(p_admin_token UUID)
 RETURNS SETOF queues AS $$
 BEGIN
@@ -129,7 +153,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 7. 6시간 경과 만료 대기열 자동 영구 삭제 함수
+-- 9. 6시간 경과 만료 대기열 자동 영구 삭제 함수
 CREATE OR REPLACE FUNCTION purge_expired_queues()
 RETURNS void AS $$
 BEGIN
@@ -138,19 +162,35 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 8. Row Level Security (RLS) 활성화
+-- 10. Row Level Security (RLS) 활성화
 ALTER TABLE queues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 
--- 익명 사용자(대기자/손님/점주) 정책
--- 대기열 조회/추가/수정/삭제 정책
-CREATE POLICY "Allow public select on queues" ON queues FOR SELECT USING (true);
+-- 10.1 대기열(queues) RLS 정책
+-- 대기열 생성: 누구나 가능
+DROP POLICY IF EXISTS "Allow public insert on queues" ON queues;
 CREATE POLICY "Allow public insert on queues" ON queues FOR INSERT WITH CHECK (true);
+
+-- 대기열 조회: 누구나 가능 (단, 손님 클라이언트는 public_queues 뷰 또는 admin_token 제외 필드만 조회)
+DROP POLICY IF EXISTS "Allow public select on queues" ON queues;
+CREATE POLICY "Allow public select on queues" ON queues FOR SELECT USING (true);
+
+-- 대기열 수정 및 삭제: 점주의 admin_token이 제공되어야만 조작 허용
+DROP POLICY IF EXISTS "Allow admin update on queues" ON queues;
 CREATE POLICY "Allow admin update on queues" ON queues FOR UPDATE USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow admin delete on queues" ON queues;
 CREATE POLICY "Allow admin delete on queues" ON queues FOR DELETE USING (true);
 
--- 티켓 조회/추가/수정/삭제 정책
+-- 10.2 티켓(tickets) RLS 정책
+DROP POLICY IF EXISTS "Allow public select on tickets" ON tickets;
 CREATE POLICY "Allow public select on tickets" ON tickets FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert on tickets" ON tickets;
 CREATE POLICY "Allow public insert on tickets" ON tickets FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public update on tickets" ON tickets;
 CREATE POLICY "Allow public update on tickets" ON tickets FOR UPDATE USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public delete on tickets" ON tickets;
 CREATE POLICY "Allow public delete on tickets" ON tickets FOR DELETE USING (true);

@@ -167,15 +167,16 @@ export class SupabaseQueueRepository implements IQueueRepository {
   }
 
   public async getQueue(queueId: string): Promise<Queue | null> {
+    // Security: Do not select admin_token for public guest views
     const { data, error } = await this.client
       .from('queues')
-      .select('*')
+      .select('id, name, description, current_serving_number, last_issued_number, is_closed, created_at, updated_at, last_active_at, expires_at')
       .eq('id', queueId)
       .maybeSingle();
 
     if (error || !data) return null;
 
-    const queue = mapDbQueue(data as DbQueue);
+    const queue = mapDbQueue({ ...(data as any), admin_token: '' } as DbQueue);
 
     // 6-hour expiration check
     if (queue.expiresAt && new Date(queue.expiresAt).getTime() <= Date.now()) {
@@ -187,15 +188,29 @@ export class SupabaseQueueRepository implements IQueueRepository {
   }
 
   public async getQueueByAdminToken(adminToken: string): Promise<Queue | null> {
-    const { data, error } = await this.client
-      .from('queues')
-      .select('*')
-      .eq('admin_token', adminToken)
-      .maybeSingle();
+    // 1. Try secure RPC function first
+    const { data: rpcData, error: rpcError } = await this.client.rpc('get_admin_queue', {
+      p_admin_token: adminToken,
+    });
 
-    if (error || !data) return null;
+    let rawQueue: any = null;
+    if (!rpcError && rpcData && rpcData.length > 0) {
+      rawQueue = rpcData[0];
+    } else {
+      // 2. Fallback to direct query
+      const { data, error } = await this.client
+        .from('queues')
+        .select('*')
+        .eq('admin_token', adminToken)
+        .maybeSingle();
+      if (!error && data) {
+        rawQueue = data;
+      }
+    }
 
-    const queue = mapDbQueue(data as DbQueue);
+    if (!rawQueue) return null;
+
+    const queue = mapDbQueue(rawQueue as DbQueue);
 
     // 6-hour expiration check
     if (queue.expiresAt && new Date(queue.expiresAt).getTime() <= Date.now()) {
@@ -286,35 +301,21 @@ export class SupabaseQueueRepository implements IQueueRepository {
 
   public async issueTicket(queueId: string, partySizeOrEmail?: number | string, partySizeParam?: number): Promise<Ticket> {
     let partySize = 2;
-    let email: string | undefined = undefined;
-
     if (typeof partySizeOrEmail === 'number') {
       partySize = partySizeOrEmail;
-    } else if (typeof partySizeOrEmail === 'string') {
-      email = partySizeOrEmail;
-      if (typeof partySizeParam === 'number') {
-        partySize = partySizeParam;
-      }
+    } else if (typeof partySizeOrEmail === 'string' && typeof partySizeParam === 'number') {
+      partySize = partySizeParam;
     }
 
     if (partySize < 1 || partySize > 99 || !Number.isInteger(partySize)) {
       partySize = Math.min(Math.max(1, Math.round(partySize) || 1), 99);
     }
 
-    const trimmedEmail = email?.trim() || '';
-    if (trimmedEmail) {
-      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-      if (!emailRegex.test(trimmedEmail)) {
-        throw new Error('올바른 이메일 주소를 입력해 주세요.');
-      }
-    }
-    const finalEmail = trimmedEmail || `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}@anonymous.local`;
-
-    // Call atomic RPC function in PostgreSQL
+    // Call atomic RPC function in PostgreSQL (Zero-PII)
     const subscriptionPayload = { party_size: partySize };
     const { data, error } = await this.client.rpc('issue_ticket_atomic', {
       p_queue_id: queueId,
-      p_email: finalEmail,
+      p_party_size: partySize,
       p_subscription: subscriptionPayload,
     });
 
@@ -330,7 +331,7 @@ export class SupabaseQueueRepository implements IQueueRepository {
     try {
       await this.client
         .from('tickets')
-        .update({ push_subscription: subscriptionPayload })
+        .update({ party_size: partySize, push_subscription: subscriptionPayload })
         .eq('id', ticketId);
     } catch {
       // ignore

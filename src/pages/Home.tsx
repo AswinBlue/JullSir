@@ -12,14 +12,21 @@ import {
   BellRing, 
   ShieldCheck, 
   ArrowRight,
-  Sparkles
+  Sparkles,
+  ExternalLink,
+  FileText
 } from 'lucide-react';
+
+type LegalType = 'terms' | 'privacy' | 'license';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
   const [guestQueueInput, setGuestQueueInput] = useState('');
   const [guestError, setGuestError] = useState('');
+
+  // Legal Modal States
+  const [activeLegalModal, setActiveLegalModal] = useState<LegalType | null>(null);
 
   // Handle Guest direct queue code / URL input
   const handleGuestSubmit = (e: React.FormEvent) => {
@@ -46,6 +53,53 @@ export const Home: React.FC = () => {
     } else {
       setGuestError('올바른 대기열 코드가 아닙니다.');
     }
+  };
+
+  const legalContent = {
+    terms: {
+      title: '서비스 이용약관',
+      fileUrl: 'https://github.com/AswinBlue/JullSir/blob/master/TERMS.md',
+      summary: (
+        <div className="space-y-3 text-xs text-slate-600 leading-relaxed max-h-80 overflow-y-auto pr-1">
+          <p className="font-semibold text-slate-900">제1조 (목적)</p>
+          <p>JullSir는 스마트폰 브라우저를 통해 실시간 순번 대기 및 호출을 수행할 수 있도록 지원하는 스마트 대기열 서비스입니다.</p>
+          <p className="font-semibold text-slate-900">제2조 (광고 게재)</p>
+          <p>지속적인 서비스 제공을 위해 서비스 내 상업용 광고가 게재될 수 있습니다.</p>
+          <p className="font-semibold text-slate-900">제3조 (면책 조항)</p>
+          <p>본 서비스는 온라인 서비스로 제공되며, 이용자의 기기 설정(무음/절전) 또는 백그라운드 종료로 인한 호출 미인지 시 서비스 제공자는 책임을 지지 않습니다.</p>
+        </div>
+      ),
+    },
+    privacy: {
+      title: '개인정보 처리방침',
+      fileUrl: 'https://github.com/AswinBlue/JullSir/blob/master/PRIVACY.md',
+      summary: (
+        <div className="space-y-3 text-xs text-slate-600 leading-relaxed max-h-80 overflow-y-auto pr-1">
+          <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-100 font-medium">
+            ✅ 본 서비스는 이름, 전화번호, 이메일, 위치정보 등 개인식별정보를 일절 수집하거나 저장하지 않습니다.
+          </div>
+          <p className="font-semibold text-slate-900">1. 처리 항목 및 파기</p>
+          <p>오직 순번표 발급을 위한 대기 인원 수와 상태 정보만 처리되며, 대기열 생성 후 6시간이 지나거나 영업 종료 시 데이터베이스에서 영구 삭제됩니다.</p>
+          <p className="font-semibold text-slate-900">2. 맞춤형 광고 관련 고지</p>
+          <p>향후 서비스 유지보수를 위해 제3자 광고 사업자(Google AdSense 등)의 비식별 쿠키 기술이 활용될 수 있으며, 브라우저 설정에서 쿠키 저장을 거부할 수 있습니다.</p>
+        </div>
+      ),
+    },
+    license: {
+      title: '오픈소스 라이선스',
+      fileUrl: 'https://github.com/AswinBlue/JullSir/blob/master/OPEN_SOURCE_LICENSES.md',
+      summary: (
+        <div className="space-y-3 text-xs text-slate-600 leading-relaxed max-h-80 overflow-y-auto pr-1">
+          <p>JullSir는 React, Vite, Tailwind CSS, Lucide React, Supabase 등 오픈소스 생태계를 바탕으로 제작되었습니다.</p>
+          <p className="font-semibold text-slate-900">주요 라이선스</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>JullSir: MIT License (AswinBlue)</li>
+            <li>React & Vite: MIT License</li>
+            <li>Pretendard Font: SIL Open Font License 1.1</li>
+          </ul>
+        </div>
+      ),
+    },
   };
 
   return (
@@ -154,9 +208,34 @@ export const Home: React.FC = () => {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="py-4 text-center text-xs text-slate-400 border-t border-slate-100">
-        <p>JullSir (줄서) • 스마트 실시간 모바일 대기열 서비스</p>
+      {/* Footer & Legal Links */}
+      <footer className="py-4 px-5 text-center text-xs text-slate-400 border-t border-slate-100 space-y-2">
+        <div className="flex items-center justify-center gap-3 text-[11px] text-slate-500">
+          <button 
+            type="button" 
+            onClick={() => setActiveLegalModal('terms')} 
+            className="hover:text-slate-800 transition-colors underline-offset-2 hover:underline"
+          >
+            이용약관
+          </button>
+          <span>•</span>
+          <button 
+            type="button" 
+            onClick={() => setActiveLegalModal('privacy')} 
+            className="hover:text-slate-800 transition-colors font-medium text-slate-600 underline-offset-2 hover:underline"
+          >
+            개인정보처리방침
+          </button>
+          <span>•</span>
+          <button 
+            type="button" 
+            onClick={() => setActiveLegalModal('license')} 
+            className="hover:text-slate-800 transition-colors underline-offset-2 hover:underline"
+          >
+            오픈소스
+          </button>
+        </div>
+        <p className="text-[11px]">JullSir (줄서) • 스마트 실시간 모바일 대기열 서비스</p>
       </footer>
 
       {/* Guest Entry Modal */}
@@ -214,6 +293,41 @@ export const Home: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Legal & Compliance Modal */}
+      {activeLegalModal && (
+        <Modal
+          isOpen={true}
+          onClose={() => setActiveLegalModal(null)}
+          title={legalContent[activeLegalModal].title}
+        >
+          <div className="space-y-4">
+            {legalContent[activeLegalModal].summary}
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+              <a
+                href={legalContent[activeLegalModal].fileUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 font-semibold"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                GitHub 원문 전문 보기
+                <ExternalLink className="w-3 h-3" />
+              </a>
+
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setActiveLegalModal(null)}
+              >
+                확인
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </MobileContainer>
   );
 };

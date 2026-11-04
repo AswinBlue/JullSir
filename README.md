@@ -1,7 +1,7 @@
 # JullSir (줄서) - 무비용 실시간 대기열 관리 시스템
 
 > **비용 0원(Zero-Cost)으로 누구나 즉시 운영하는 모바일 최적화 실시간 큐잉 웹 서비스**  
-> GitHub Pages 호스팅 (`https://aswinblue.github.io/Jullsir`) 지원
+> GitHub Pages 호스팅 (`https://aswinblue.github.io/JullSir`) 지원
 
 ---
 
@@ -26,7 +26,7 @@
 | 영역 | 채택 기술 | 비고 |
 | :--- | :--- | :--- |
 | **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Lucide React | 모바일 최적화 반응형 UI (캐치테이블/토스 스타일) |
-| **Hosting & CI/CD** | GitHub Pages (`aswinblue.github.io/Jullsir`), GitHub Actions | 완전 무료, Git Push 시 자동 빌드 & 배포 |
+| **Hosting & CI/CD** | GitHub Pages (`aswinblue.github.io/JullSir`), GitHub Actions | 완전 무료, Git Push 시 자동 빌드 & 배포 |
 | **SPA Routing** | React Router DOM + `404.html` SPA Redirect Restore | GitHub Pages 새로고침 404 방지 |
 | **실시간 통신** | LocalStorage + `BroadcastChannel` (실시간 탭 동기화) | 서버 비용 0원, 멀티 창/탭 간 0.05초 동기화 |
 | **시청각 피드백** | Web Audio API (합성 차임벨), Vibration API, Notification API | 외부 오디오 의존성 없이 네이티브 구동 |
@@ -41,7 +41,7 @@
 | 스크립트 파일 | 설명 | 실행 명령어 (PowerShell) | 실행 명령어 (Bash / npm) |
 | :--- | :--- | :--- | :--- |
 | **`scripts/menu.ps1`** | **대화형 통합 작업 메뉴** (원클릭 번호 선택) | `.\scripts\menu.ps1` | `bash scripts/menu.sh` |
-| **`scripts/dev.ps1`** | 로컬 개발 서버 실행 (`localhost:3000/Jullsir/`) | `.\scripts\dev.ps1` | `pnpm dev` |
+| **`scripts/dev.ps1`** | 로컬 개발 서버 실행 (`localhost:3000/JullSir/`) | `.\scripts\dev.ps1` | `pnpm dev` |
 | **`scripts/test.ps1`** | 단위 및 로직 테스트 실행 (Vitest 5개 테스트) | `.\scripts\test.ps1` | `pnpm test` |
 | **`scripts/build-test.ps1`** | 테스트 빌드 (단위테스트 + 타입체크 + 스테이징 빌드) | `.\scripts\build-test.ps1` | `pnpm run build:test` |
 | **`scripts/build-prod.ps1`** | 운영 빌드 (타입체크 + 프로덕션 번들 빌드) | `.\scripts\build-prod.ps1` | `pnpm run build:prod` |
@@ -65,13 +65,13 @@ pnpm typecheck
 pnpm build
 ```
 
-브라우저에서 `http://localhost:3000/Jullsir/`에 접속하여 테스트할 수 있습니다.
+브라우저에서 `http://localhost:3000/JullSir/`에 접속하여 테스트할 수 있습니다.
 
 ---
 
 ## 5. GitHub Pages 배포 방법
 
-1. 본 레포지토리를 GitHub의 `Jullsir` 원격 저장소(`main` 브랜치)로 푸시합니다.
+1. 본 레포지토리를 GitHub의 `JullSir` 원격 저장소(`master` 브랜치)로 푸시합니다.
 2. GitHub 저장소의 **Settings** $\rightarrow$ **Pages** 메뉴로 이동합니다.
 3. **Build and deployment** 항목의 **Source**를 `GitHub Actions`로 선택합니다.
-4. `.github/workflows/deploy.yml` 워크플로가 자동 실행되어 `https://aswinblue.github.io/Jullsir`에 배포됩니다.
+4. `.github/workflows/deploy.yml` 워크플로가 자동 실행되어 `https://aswinblue.github.io/JullSir`에 배포됩니다.

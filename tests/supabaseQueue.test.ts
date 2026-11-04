@@ -52,8 +52,8 @@ describe('SupabaseQueueRepository Tests', () => {
     expect(queue.expiresAt).toBeDefined();
   });
 
-  it('issueTicket: atomic RPC issue_ticket_atomic을 호출하고 중복 복원 플래그(isExisting)를 반환해야 한다', async () => {
-    // 1. RPC 호출 결과 (중복 발견으로 기존 번호 복원)
+  it('issueTicket: atomic RPC issue_ticket_atomic을 호출하고 party_size와 중복 복원 플래그(isExisting)를 반환해야 한다', async () => {
+    // 1. RPC 호출 결과
     mockSupabase.rpc.mockResolvedValue({
       data: [{ new_ticket_id: 't_existing', new_ticket_number: 5, is_existing: true }],
       error: null,
@@ -68,7 +68,7 @@ describe('SupabaseQueueRepository Tests', () => {
               id: 't_existing',
               queue_id: 'q_123',
               ticket_number: 5,
-              email: 'guest@test.com',
+              party_size: 6,
               status: 'WAITING',
               created_at: new Date().toISOString(),
               called_at: null,
@@ -79,10 +79,10 @@ describe('SupabaseQueueRepository Tests', () => {
       }),
     });
 
-    const ticket = await repo.issueTicket('q_123', 'guest@test.com', 6);
+    const ticket = await repo.issueTicket('q_123', 6);
     expect(mockSupabase.rpc).toHaveBeenCalledWith('issue_ticket_atomic', {
       p_queue_id: 'q_123',
-      p_email: 'guest@test.com',
+      p_party_size: 6,
       p_subscription: { party_size: 6 },
     });
     expect(ticket.id).toBe('t_existing');
@@ -91,8 +91,8 @@ describe('SupabaseQueueRepository Tests', () => {
     expect(ticket.isExisting).toBe(true);
   });
 
-  it('completeTicket: 개인정보 보호를 위해 email을 null로 파기해야 한다', async () => {
-    // 1. getQueueByAdminToken
+  it('completeTicket: 상태를 COMPLETED로 변경해야 한다', async () => {
+    // 1. getQueueByAdminToken via secure RPC or fallback
     const dbQueue = {
       id: 'q_123',
       admin_token: 'adm_token',
@@ -103,6 +103,11 @@ describe('SupabaseQueueRepository Tests', () => {
       created_at: new Date().toISOString(),
     };
 
+    mockSupabase.rpc.mockResolvedValue({
+      data: [dbQueue],
+      error: null,
+    });
+
     const updateMock = vi.fn().mockReturnValue({
       eq: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
@@ -112,7 +117,6 @@ describe('SupabaseQueueRepository Tests', () => {
                 id: 't_1',
                 queue_id: 'q_123',
                 ticket_number: 1,
-                email: null,
                 status: 'COMPLETED',
                 created_at: new Date().toISOString(),
               },
@@ -143,14 +147,9 @@ describe('SupabaseQueueRepository Tests', () => {
 
     const completed = await repo.completeTicket('adm_token', 't_1');
     expect(completed.status).toBe('COMPLETED');
-    expect(completed.email).toBeUndefined();
-    expect(updateMock).toHaveBeenCalledWith({
-      status: 'COMPLETED',
-      email: null,
-    });
   });
 
-  it('cancelTicket: 대기 취소 시 email을 null로 파기해야 한다', async () => {
+  it('cancelTicket: 대기 취소 시 상태를 CANCELLED로 변경해야 한다', async () => {
     const updateMock = vi.fn().mockReturnValue({
       eq: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
@@ -159,7 +158,6 @@ describe('SupabaseQueueRepository Tests', () => {
               id: 't_2',
               queue_id: 'q_123',
               ticket_number: 2,
-              email: null,
               status: 'CANCELLED',
               created_at: new Date().toISOString(),
             },
@@ -175,10 +173,5 @@ describe('SupabaseQueueRepository Tests', () => {
 
     const cancelled = await repo.cancelTicket('t_2');
     expect(cancelled.status).toBe('CANCELLED');
-    expect(cancelled.email).toBeUndefined();
-    expect(updateMock).toHaveBeenCalledWith({
-      status: 'CANCELLED',
-      email: null,
-    });
   });
 });

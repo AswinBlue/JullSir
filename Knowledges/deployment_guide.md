@@ -29,7 +29,7 @@ JullSir는 외부 유료 인프라나 도메인 구매 비용 없이 완전 무�
          - 백그라운드 전환 유도: 홈 화면 추가(PWA) 인터랙티브 가이드
 ```
 
-* **프론트엔드 호스팅**: GitHub Pages (`https://aswinblue.github.io/Jullsir`)
+* **프론트엔드 호스팅**: GitHub Pages (`https://aswinblue.github.io/JullSir`)
 * **데이터베이스 & 실시간 통신**: Supabase (PostgreSQL + Realtime WebSocket)
 * **알림 아키텍처**: 브라우저 네이티브 Realtime 진동벨 엔진 (이메일 서버 및 도메인 불필요)
 
@@ -121,7 +121,7 @@ corepack pnpm@9 run dev
 
 ### 4.3 GitHub Pages 자동 배포
 1. `master` 브랜치에 코드를 푸시하면 `.github/workflows/deploy.yml` 워크플로가 자동 실행됩니다.
-2. Vite가 최적화 번들을 빌드하고 GitHub Pages (`https://aswinblue.github.io/Jullsir`)로 자동 배포합니다.
+2. Vite가 최적화 번들을 빌드하고 GitHub Pages (`https://aswinblue.github.io/JullSir`)로 자동 배포합니다.
 
 ---
 
